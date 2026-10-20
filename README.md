@@ -1,0 +1,37 @@
+# Catan Virtual
+
+Colonos de Catan para computadora: contra la máquina o en red local (LAN).
+
+## Cómo jugar (desarrollo)
+
+```bash
+npm install      # solo la primera vez
+npm start        # abre la aplicación de escritorio (Electron)
+```
+
+Para probar en el navegador: `npm run dev` y abre http://localhost:8080.
+
+## Modos
+
+- **Clásico** (3-4 jugadores, 10 PV; 5-6 con la ampliación oficial)
+- **Navegantes: Hacia nuevas costas** (barcos, islas, pirata, oro, 14 PV; 3-4 jugadores)
+- **Ciudades y Caballeros** (13 PV; 3-4 jugadores, 5-6 con su ampliación): mercancías, dado de eventos,
+  bárbaros, caballeros, murallas, mejoras de ciudad, metrópolis y 54 cartas de progreso
+- Mercaderes y Bárbaros, Piratas y Exploradores: próximamente
+
+## LAN
+
+Un jugador elige *Partida en red → Crear partida*. Los demás, en la misma red,
+la ven en la lista (búsqueda automática por UDP, puerto 47801) o escriben la IP del anfitrión.
+La partida usa el puerto TCP 47800: si no conectan, permite la app en el cortafuegos del anfitrión.
+Si un jugador se desconecta, la máquina sigue jugando por él.
+
+## Estructura
+
+- `src/js/engine/` motor de reglas, tablero, IA y nombres (sin dependencias, también corre en Node)
+- `src/js/host.js` anfitrión de partida y sesiones (local, anfitrión LAN, cliente LAN)
+- `src/js/ui/` tablero SVG, interfaz de partida, sonidos, reglas
+- `server/` relé WebSocket y descubrimiento UDP
+- `src/js/engine/ck.js` reglas de Ciudades y Caballeros; `src/js/ui/ck-ui.js` su interfaz
+- `tools/simulate.js` simula partidas entre bots: `npm run sim -- cities 20` (modos: classic, extended, seafarers, cities, cities56)
+- `tools/test-ck.js` pruebas de reglas de Ciudades y Caballeros: `node tools/test-ck.js`

@@ -1,0 +1,20 @@
+{
+  "name": "catan-virtual",
+  "productName": "Catan Virtual",
+  "version": "0.1.0",
+  "description": "Colonos de Catan virtual: solo contra la máquina o en red LAN",
+  "main": "main.js",
+  "author": "Marcos",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "dev": "node server/dev.js",
+    "sim": "node tools/simulate.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0"
+  }
+}
