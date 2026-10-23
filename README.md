@@ -11,6 +11,16 @@ npm start        # abre la aplicación de escritorio (Electron)
 
 Para probar en el navegador: `npm run dev` y abre http://localhost:8080.
 
+En Linux, para tener "Catan Virtual" en el menú de aplicaciones con su ícono (y que la barra de tareas
+muestre el ícono del juego):
+
+```bash
+sh tools/instalar-acceso-directo.sh
+```
+
+Nota: en Ubuntu reciente Electron necesita `--no-sandbox` (ya incluido en `npm start` y en el acceso directo).
+El ícono está en `build/icon.svg`; para regenerar los PNG: `npx electron tools/render-icon.js --no-sandbox`.
+
 ## Modos
 
 - **Clásico** (3-4 jugadores, 10 PV; 5-6 con la ampliación oficial)

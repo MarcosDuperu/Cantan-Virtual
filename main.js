@@ -4,6 +4,9 @@ const path = require('path');
 const { createRelay } = require('./server/relay');
 const { createAnnouncer, createListener, localIPs } = require('./server/discovery');
 
+// El escritorio asocia la ventana (clase "Catan Virtual") con catan-virtual.desktop para mostrar el ícono
+if (process.platform === 'linux') app.setDesktopName('catan-virtual.desktop');
+
 let win = null;
 let relay = null;
 let announcer = null;

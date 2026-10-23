@@ -7,7 +7,7 @@
   "author": "Marcos",
   "license": "UNLICENSED",
   "scripts": {
-    "start": "electron .",
+    "start": "electron . --no-sandbox",
     "dev": "node server/dev.js",
     "sim": "node tools/simulate.js"
   },
