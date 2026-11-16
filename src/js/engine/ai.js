@@ -251,8 +251,8 @@
     const cards = C.playableDev(s, pid);
     if (!cards.length) return null;
     const P = s.players[pid];
-    const robberHex = s.board.hexes[s.robber];
-    const blocked = robberHex.vertices.some(v => s.buildings[v] && s.buildings[v].owner === pid) && robberHex.number;
+    const robberHex = s.robber !== null && s.robber !== undefined ? s.board.hexes[s.robber] : null;
+    const blocked = robberHex && robberHex.vertices.some(v => s.buildings[v] && s.buildings[v].owner === pid) && robberHex.number;
     if (cards.includes('knight')) {
       const cur = s.largestArmy;
       const wouldTake = P.knights + 1 >= 3 && (cur === null || (cur !== pid && P.knights + 1 > s.players[cur].knights));
@@ -526,11 +526,454 @@
     return undefined;
   }
 
+  // ================= Piratas y Exploradores =================
+  function peBest(list, val) {
+    let best, bv = -Infinity;
+    list.forEach(x => { const v = val(x); if (v > bv) { bv = v; best = x; } });
+    return best;
+  }
+  function peInPlay(s, pid, item) {
+    const PE = C.PE;
+    return Object.values(s.pe.ships).filter(x => x.owner === pid).reduce((a, x) => a + x.cargo.filter(c => c === item).length, 0) +
+      PE.ownHarbors(s, pid).reduce((a, v) => a + (s.pe.docks[v] || []).filter(c => c === item).length, 0);
+  }
+  // Esquinas de tierra donde un barco colono podría fundar un buen poblado
+  function peFoundSpots(s, pid) {
+    const PE = C.PE;
+    return s.board.vertices.filter(v => PE.coastal(s, v.id) && PE.settleOk(s, v.id) && PE.spiceOk(s, pid, v.id) && vertexValue(s, pid, v.id, null) >= 3).map(v => v.id);
+  }
+  function peCrewUseful(s, pid) {
+    const sc = C.PE.SCENARIOS[s.pe.scenario];
+    const lair = sc.lairs && s.board.hexes.some(h => h.lair && !h.hidden && h.lair.crews.length < 3);
+    const spice = sc.spice && s.board.hexes.some(h => h.terrain === 'spice' && !h.hidden && h.spice.left > 0 && !h.spice.crews.includes(pid));
+    return lair || spice;
+  }
+  function peGoal(s, pid, prod) {
+    const PE = C.PE, P = s.players[pid];
+    if (P.pieces.harbor > 0) {
+      const hs = PE.harborSpots(s, pid);
+      if (hs.length) return { what: 'harbor', cost: PE.COST.harbor, at: peBest(hs, v => vertexValue(s, pid, v, prod)) };
+    }
+    if (P.pieces.settlement > 0) {
+      const sp = PE.settleSpots(s, pid);
+      if (sp.length) return { what: 'settlement', cost: PE.COST.settlement, at: peBest(sp, v => vertexValue(s, pid, v, prod) + noise(P)) };
+    }
+    const myShips = Object.values(s.pe.ships).filter(x => x.owner === pid);
+    const shipEdges = P.pieces.ship > 0 ? PE.shipBuildEdges(s, pid) : [];
+    if (!myShips.length && shipEdges.length) return { what: 'ship', cost: PE.COST.ship, at: shipEdges[0] };
+    const target = item => { const t = PE.cargoTargets(s, pid, item); return t.ships.length || t.docks.length ? t : null; };
+    const hiddenLeft = s.board.hexes.some(h => h.hidden);
+    if (P.pieces.settler > 0 && P.pieces.settlement > peInPlay(s, pid, 'settler') && peInPlay(s, pid, 'settler') === 0 &&
+      (hiddenLeft || peFoundSpots(s, pid).length) && target('settler')) return { what: 'settler', cost: PE.COST.settler };
+    if (P.pieces.crew > 0 && peCrewUseful(s, pid) && peInPlay(s, pid, 'crew') < 2 && target('crew')) return { what: 'crew', cost: PE.COST.crew };
+    if (myShips.length < 2 && shipEdges.length) return { what: 'ship', cost: PE.COST.ship, at: shipEdges[0] };
+    if (P.pieces.settlement > 0 && P.pieces.road > 0) {
+      const rt = routeTarget(s, pid, prod);
+      if (rt && rt.kind === 'road' && rt.score > 1.5) return { what: 'road', cost: PE.COST.road, at: rt.e };
+    }
+    return null;
+  }
+  function peBuildAction(s, pid, g) {
+    const PE = C.PE;
+    if (g.what === 'harbor') return { type: 'buildHarbor', vertex: g.at };
+    if (g.what === 'settlement') return { type: 'buildSettlement', vertex: g.at };
+    if (g.what === 'ship') return { type: 'buildShip', edge: g.at };
+    if (g.what === 'road') return { type: 'buildRoad', edge: g.at };
+    const t = PE.cargoTargets(s, pid, g.what);
+    const a = { type: g.what === 'settler' ? 'buildSettler' : 'buildCrew' };
+    const empty = t.ships.find(id => !s.pe.ships[id].cargo.length);
+    if (empty !== undefined) a.ship = empty;
+    else if (t.ships.length) a.ship = t.ships[0];
+    else a.dock = t.docks[0];
+    return a;
+  }
+  function peTradeFor(s, pid, cost) {
+    const P = s.players[pid];
+    const { m } = missing(P.resources, cost);
+    const want = Object.keys(m).find(k => s.bank[k] > 0);
+    if (!want) return null;
+    if (P.gold >= 2 && s.pe.goldBuys < 2) return { type: 'bankTrade', give: 'gold', get: want };
+    const give = RES.filter(g => g !== want && P.resources[g] - (cost[g] || 0) >= 3).sort((a, b) => P.resources[b] - P.resources[a])[0];
+    return give ? { type: 'bankTrade', give, get: want, count: 1 } : null;
+  }
+  function peSetup(s, pid) {
+    const PE = C.PE, P = s.players[pid];
+    const prod = production(s, pid);
+    const sp = PE.setupSpots(s, pid);
+    const st = s.setup.step;
+    if (st === 'harbor' || st === 'settlement' || st === 'nharbor' || st === 'nsettlement') {
+      // las piezas neutrales (2 jugadores) se usan para tapar el mejor sitio que queda
+      const v = peBest(sp.vertices, x => vertexValue(s, pid, x, st[0] === 'n' ? null : prod) + noise(P));
+      return { type: st === 'harbor' || st === 'nharbor' ? 'buildHarbor' : 'buildSettlement', vertex: v };
+    }
+    if (st === 'road') {
+      const e = peBest(sp.edges, x => {
+        const o = s.board.edges[x].v.find(v => !s.buildings[v]);
+        let val = 0;
+        if (o !== undefined) s.board.vertices[o].adj.forEach(n => { if (freeSpot(s, n)) val = Math.max(val, vertexValue(s, pid, n, prod)); });
+        return val + noise(P);
+      });
+      return { type: 'buildRoad', edge: e };
+    }
+    return { type: 'buildShip', edge: sp.edges[Math.floor(Math.random() * sp.edges.length)] };
+  }
+  function pePirate(s, pid) {
+    const PE = C.PE;
+    const leader = Math.max(...s.players.map(p => p.id === pid ? 0 : C.publicVP(s, p.id)));
+    const hx = peBest(PE.pirateHexes(s), h => {
+      let v = 0;
+      Object.values(s.pe.ships).forEach(x => { if (PE.edgeTouchesHex(s, x.edge, h)) v += x.owner === pid ? -2 : 2 + (C.publicVP(s, x.owner) === leader ? 1 : 0); });
+      if (s.board.hexes[h].fish) v += 1;
+      return v + Math.random() * 0.5;
+    });
+    const cands = PE.pirateVictims(s, pid, hx).sort((a, b) => total(s.players[b].resources) - total(s.players[a].resources));
+    return { type: 'placePirate', hex: hx, victim: cands.length ? cands[0] : null };
+  }
+  function peMain(s, pid, mem) {
+    const P = s.players[pid];
+    if (mem.peTurn !== s.turn) { mem.peTurn = s.turn; mem.peActs = 0; mem.peTrades = 0; mem.peMoves = 0; mem.peSkip = {}; }
+    if (++mem.peActs > 40) return { type: 'startMove' };
+    const prod = production(s, pid);
+    const g = peGoal(s, pid, prod);
+    if (g) {
+      if (hasRes(P.resources, g.cost)) return peBuildAction(s, pid, g);
+      if (mem.peTrades < 5) { const t = peTradeFor(s, pid, g.cost); if (t) { mem.peTrades++; return t; } }
+    }
+    if (total(P.resources) > 7 && mem.peTrades < 8) {
+      const k = RES.filter(x => P.resources[x] >= 3).sort((a, b) => P.resources[b] - P.resources[a])[0];
+      if (k) { mem.peTrades++; return { type: 'bankTrade', give: k, get: 'gold' }; }
+    }
+    return { type: 'startMove' };
+  }
+  function peShipAction(s, pid, sh) {
+    const PE = C.PE, P = s.players[pid];
+    const sc = PE.SCENARIOS[s.pe.scenario];
+    const has = it => sh.cargo.includes(it);
+    const council = PE.councilHex(s);
+    // acciones en el sitio
+    const fv = PE.foundable(s, sh);
+    if (fv.length) return { type: 'foundSettlement', ship: sh.id, vertex: peBest(fv, v => vertexValue(s, pid, v, null)) };
+    if ((has('fish') || has('spice')) && council !== null && PE.edgeTouchesHex(s, sh.edge, council)) return { type: 'deliver', ship: sh.id };
+    if (has('crew')) {
+      const l = sc.lairs ? PE.adjacentLairs(s, sh.edge)[0] : undefined;
+      if (l !== undefined) return { type: 'dropCrew', ship: sh.id, hex: l };
+      const sp = sc.spice ? PE.adjacentSpices(s, sh.edge, pid)[0] : undefined;
+      if (sp !== undefined && !has('settler')) return { type: 'tradeSpice', ship: sh.id, hex: sp };
+    }
+    if (PE.space(sh.cargo) >= 1 && !has('fish') && !has('settler')) { const ph = PE.pickupHexes(s, sh)[0]; if (ph !== undefined) return { type: 'pickupCrew', ship: sh.id, hex: ph }; }
+    if (!sh.cargo.length && sc.fish) { const f = PE.adjacentFish(s, sh.edge)[0]; if (f !== undefined) return { type: 'loadFish', ship: sh.id, hex: f }; }
+    const hv = PE.harborOf(s, pid, sh.edge);
+    if (hv !== undefined && !has('fish') && !has('spice')) {
+      const it = (s.pe.docks[hv] || []).find(x => (x === 'settler' || (x === 'crew' && peCrewUseful(s, pid))) && PE.space(sh.cargo) >= PE.SIZE[x]);
+      if (it) return { type: 'transfer', ship: sh.id, item: it, dir: 'load' };
+    }
+    if (!sh.cargo.length && PE.canFight(s, pid, sh)) return { type: 'fightPirate', ship: sh.id };
+    if (sh.stopped || sh.mp <= 0) return null;
+    // destino
+    const E = s.board.edges;
+    const targets = new Set();
+    const addHex = pred => s.board.hexes.forEach(h => { if (pred(h)) h.edges.forEach(e => { if (PE.isRoute(s, e)) targets.add(e); }); });
+    const addVertex = v => s.board.vertices[v].edges.forEach(e => { if (PE.isRoute(s, e)) targets.add(e); });
+    const explore = () => E.forEach(e => { if (PE.isRoute(s, e.id) && PE.edgeTouchesHidden(s, e.id)) targets.add(e.id); });
+    if (has('settler')) {
+      peFoundSpots(s, pid).forEach(addVertex);
+      if (!targets.size) explore();
+    } else if (has('fish') || has('spice')) {
+      if (council !== null) s.board.hexes[council].vertices.forEach(addVertex);
+    } else if (has('crew')) {
+      if (sc.lairs) addHex(h => h.lair && !h.hidden && h.lair.crews.length < 3);
+      if (sc.spice) addHex(h => h.terrain === 'spice' && !h.hidden && h.spice.left > 0 && !h.spice.crews.includes(pid));
+      if (!targets.size) explore();
+    } else {
+      if (sc.fish) addHex(h => h.terrain === 'fish' && !h.hidden && h.fish);
+      PE.ownHarbors(s, pid).forEach(v => {
+        if ((s.pe.docks[v] || []).some(x => x === 'settler' || (x === 'crew' && peCrewUseful(s, pid)))) addVertex(v);
+      });
+      if (!targets.size) explore();
+    }
+    const path = targets.size ? PE.pathTo(s, sh, targets) : null;
+    if (!path || !path.length) return null;
+    if (!sh.boosted && path.length > sh.mp && P.resources.sheep > 1) return { type: 'boostShip', ship: sh.id };
+    const rc = PE.reach(s, sh.id);
+    for (let i = path.length - 1; i >= 0; i--) {
+      const r = rc.get(path[i]);
+      if (r && (!r.tribute || P.gold >= 2)) return { type: 'moveShip', ship: sh.id, to: path[i] };
+    }
+    return null;
+  }
+  function peMove(s, pid, mem) {
+    if (mem.peTurn !== s.turn) { mem.peTurn = s.turn; mem.peActs = 0; mem.peTrades = 0; mem.peMoves = 0; mem.peSkip = {}; }
+    if (++mem.peMoves > 60) return { type: 'endTurn' };
+    const ships = Object.values(s.pe.ships).filter(x => x.owner === pid).sort((a, b) => a.id - b.id);
+    for (const sh of ships) {
+      if (mem.peSkip[sh.id]) continue;
+      const a = peShipAction(s, pid, sh);
+      if (a) return a;
+      mem.peSkip[sh.id] = true;
+    }
+    return { type: 'endTurn' };
+  }
+  function peRespond(s, pid) {
+    const t = s.trade, P = s.players[pid];
+    if (!hasRes(P.resources, t.get) || C.publicVP(s, t.from) >= s.vpTarget - 2) return { type: 'respondTrade', id: t.id, accept: false };
+    const g = peGoal(s, pid, production(s, pid));
+    const cost = g ? g.cost : {};
+    const after = Object.assign({}, P.resources);
+    RES.forEach(k => { after[k] += (t.give[k] || 0) - (t.get[k] || 0); });
+    const before = missing(P.resources, cost).n, aft = missing(after, cost).n;
+    return { type: 'respondTrade', id: t.id, accept: aft < before || (aft === before && total(t.give) > total(t.get)) };
+  }
+  function peDecide(s, pid, mem) {
+    const P = s.players[pid];
+    if (s.phase === 'discard') return s.pendingDiscard[pid] ? { type: 'discard', resources: ckPickMost(P.resources, s.pendingDiscard[pid], false) } : null;
+    if (s.phase === 'main' && s.trade && s.trade.from !== pid && s.trade.responses[pid] === undefined &&
+      (s.trade.to === null || s.trade.to === pid)) return peRespond(s, pid);
+    if (s.current !== pid) return null;
+    if (s.phase === 'setup') return peSetup(s, pid);
+    if (s.phase === 'roll') return { type: 'roll' };
+    if (s.phase === 'pirate') return pePirate(s, pid);
+    if (s.phase === 'main') {
+      if (s.trade && s.trade.from === pid) return { type: 'cancelTrade' };
+      return peMain(s, pid, mem);
+    }
+    if (s.phase === 'move') return peMove(s, pid, mem);
+    return null;
+  }
+
+  // ================= Mercaderes y Bárbaros =================
+  const vdist = (s, a, b) => { const A = s.board.vertices[a], B = s.board.vertices[b]; return Math.hypot(A.x - B.x, A.y - B.y); };
+  const edist = (s, a, b) => { const A = s.board.edges[a], B = s.board.edges[b]; return Math.hypot(A.x - B.x, A.y - B.y); };
+  function tbLeader(s, pid) {
+    const ps = C.TB.real(s).filter(p => p.id !== pid);
+    return ps.sort((a, b) => C.publicVP(s, b.id) - C.publicVP(s, a.id))[0];
+  }
+  function tbSpare(P) { return RES.slice().sort((a, b) => P.resources[b] - P.resources[a]).find(k => P.resources[k] > 0); }
+  function tbVote(s, pid) {
+    const opts = C.TB.camelOptions(s), P = s.players[pid];
+    let best = 0, bv = -Infinity;
+    opts.forEach((o, i) => {
+      let val = Math.random() * 0.3;
+      const E = s.board.edges[o.edge];
+      if (s.roads[o.edge] && s.roads[o.edge].owner === pid) val += 1.5;
+      E.v.forEach(v => {
+        const b = s.buildings[v];
+        if (!b) return;
+        const has = s.board.vertices[v].edges.filter(e => s.tb.camels[e] !== undefined).length;
+        if (has >= 1) val += b.owner === pid ? 3 : -1.5;
+        else if (b.owner === pid) val += 0.5;
+      });
+      if (val > bv) { bv = val; best = i; }
+    });
+    const bid = { sheep: 0, wheat: 0 };
+    if (bv >= 3) { if (P.resources.sheep >= 1) bid.sheep = Math.min(2, P.resources.sheep); else if (P.resources.wheat >= 2) bid.wheat = 1; }
+    else if (bv >= 1.5 && P.resources.sheep >= 2) bid.sheep = 1;
+    return { type: 'vote', option: best, sheep: bid.sheep, wheat: bid.wheat };
+  }
+  function tbKnightMoves(s, pid, mem) {
+    const TB = C.TB;
+    const castle = TB.castleEdges(s);
+    const mine = Object.keys(s.tb.knights).map(Number).filter(e => s.tb.knights[e].owner === pid);
+    const myHex = h => h.vertices.some(v => s.buildings[v] && s.buildings[v].owner === pid);
+    const targets = s.board.hexes.filter(h => h.coastal && h.barbs).sort((a, b) => (myHex(b) ? 10 : 0) + b.barbs - ((myHex(a) ? 10 : 0) + a.barbs));
+    for (const e of mine) {
+      if (mem.knMoved && mem.knMoved[e]) continue;
+      const tg = TB.knightTargets(s, e).filter(t => !castle.has(t.edge));
+      if (!tg.length) continue;
+      const onCastle = castle.has(e);
+      let best = null, bv = -Infinity;
+      for (const t of tg) {
+        let val = -t.cost * 0.1;
+        const E = s.board.edges[t.edge];
+        targets.forEach((h, i) => {
+          if (E.hexes.includes(h.id)) {
+            const kn = h.edges.filter(x => s.tb.knights[x] && x !== e).length;
+            val += (kn + 1 > h.barbs ? 12 : 5) + (myHex(h) ? 4 : 0) - i * 0.3;
+          } else val += Math.max(0, 3 - Math.hypot(E.x - h.x, E.y - h.y)) * (myHex(h) ? 0.8 : 0.4);
+        });
+        if (val > bv) { bv = val; best = t; }
+      }
+      const here = s.board.edges[e];
+      const stayVal = targets.some(h => here.hexes.includes(h.id)) ? 6 : 0;
+      if (best && (onCastle || bv > stayVal + 0.5)) {
+        (mem.knMoved = mem.knMoved || {})[best.edge] = true;
+        return { type: 'moveKnight', from: e, to: best.edge };
+      }
+    }
+    return null;
+  }
+  function tbWagon(s, pid, mem) {
+    const TB = C.TB, P = s.players[pid], W = P.wagon;
+    if (!W || W.v === null || W.stopped) return null;
+    const plazas = s.board.vertices.filter(v => v.plaza !== undefined);
+    const dest = plazas.filter(v => {
+      const k = s.board.hexes[v.plaza].terrain;
+      return P.cargo ? TB.GOOD_DEST[P.cargo] === k : (typeof s.tb.stacks[k] === 'number' ? s.tb.stacks[k] : s.tb.stacks[k].length) > 0;
+    }).map(v => v.id);
+    if (!dest.length) return null;
+    // distancias por caminos hasta el destino más cercano
+    const dist = new Map(dest.map(v => [v, 0]));
+    const q = dest.slice();
+    while (q.length) {
+      const v = q.shift();
+      for (const e of s.board.vertices[v].edges) {
+        if (!s.board.edges[e].land) continue;
+        const o = s.board.edges[e].v[0] === v ? s.board.edges[e].v[1] : s.board.edges[e].v[0];
+        const c = TB.wagonEdgeCost(s, pid, e).mp;
+        if (!dist.has(o) || dist.get(o) > dist.get(v) + c) { dist.set(o, dist.get(v) + c); q.push(o); }
+      }
+    }
+    const reach = TB.wagonReach(s, pid);
+    const here = dist.has(W.v) ? dist.get(W.v) : 99;
+    let best = null, bv = here;
+    reach.forEach((r, v) => {
+      const d = dist.has(v) ? dist.get(v) : 99;
+      const val = d + r.gold * 0.3;
+      if (d < here && val < bv) { bv = val; best = v; }
+    });
+    if (best !== null && dest.includes(best)) return { type: 'moveWagon', to: best };
+    if (!W.boosted && P.resources.wheat >= 2 && here > W.mp && here <= W.mp + 2) return { type: 'boostWagon' };
+    if (best !== null) return { type: 'moveWagon', to: best };
+    return null;
+  }
+  function tbMain(s, pid, mem) {
+    const TB = C.TB, P = s.players[pid], scn = s.tb.scenario;
+    if (mem.tbTurn !== s.turn + ':' + (s.tb.p2 ? 2 : 1)) { mem.tbTurn = s.turn + ':' + (s.tb.p2 ? 2 : 1); mem.tbActs = 0; mem.knMoved = {}; }
+    if (++mem.tbActs > 25) return undefined;
+    if (P.damaged !== null && hasRes(P.resources, TB.COST.repair) && total(P.resources) >= 4) return { type: 'repairRoad' };
+    if (s.tb.boot === pid) {
+      const t = TB.real(s).filter(p => p.id !== pid && C.publicVP(s, p.id) >= C.publicVP(s, pid)).sort((a, b) => C.publicVP(s, b.id) - C.publicVP(s, a.id))[0];
+      if (t) return { type: 'giveBoot', to: t.id };
+    }
+    if (scn === 1 && P.fish.length) {
+      const sum = P.fish.reduce((a, b) => a + b, 0);
+      const pick = cost => { const idx = P.fish.map((f, i) => [f, i]).sort((a, b) => a[0] - b[0]); const out = []; let t = 0; for (const [f, i] of idx) { if (t >= cost) break; out.push(i); t += f; } return out; };
+      const rh = s.robber !== null ? s.board.hexes[s.robber] : null;
+      if (rh && rh.number && rh.vertices.some(v => s.buildings[v] && s.buildings[v].owner === pid) && sum >= TB.fishCost(s, pid, 'robberOff'))
+        return { type: 'fishAction', action: 'robberOff', tokens: pick(TB.fishCost(s, pid, 'robberOff')) };
+      if (sum >= TB.fishCost(s, pid, 'dev') && s.devDeck.length) return { type: 'fishAction', action: 'dev', tokens: pick(TB.fishCost(s, pid, 'dev')) };
+      if (sum >= TB.fishCost(s, pid, 'resource') && P.fish.length >= 4) {
+        const g = goal(s, pid, production(s, pid));
+        const need = g && COST[g.what] ? Object.keys(missing(P.resources, COST[g.what]).m).find(k => s.bank[k] > 0) : null;
+        const k = need || RES.slice().sort((a, b) => P.resources[a] - P.resources[b])[0];
+        if (s.bank[k] > 0) return { type: 'fishAction', action: 'resource', resource: k, tokens: pick(TB.fishCost(s, pid, 'resource')) };
+      }
+    }
+    if (scn === 2 && hasRes(P.resources, TB.COST.bridge) && P.pieces.bridge > 0) {
+      const b = TB.bridgeSpots(s, pid)[0];
+      if (b !== undefined) return { type: 'buildBridge', edge: b };
+    }
+    if (scn === 5 && P.wagon.level < 5 && hasRes(P.resources, TB.TRAIN[P.wagon.level + 1].cost) && (P.wagon.level < 3 || total(P.resources) >= 6))
+      return { type: 'upgradeWagon' };
+    if (TB.usesGold(s) && P.gold >= 2 && s.tb.goldBuys < 2 && !(s.tb.p2 && scn === 5)) {
+      const rich = scn !== 2 || P.gold > Math.min(...TB.real(s).map(p => p.gold)) + 3;
+      const g = goal(s, pid, production(s, pid));
+      if (rich && g && COST[g.what]) {
+        const m = missing(P.resources, COST[g.what]);
+        const k = Object.keys(m.m).find(x => s.bank[x] > 0);
+        if (k && m.n <= 2) return { type: 'bankTrade', give: 'gold', get: k };
+      }
+    }
+    if (s.tb.two && s.tb.scenario !== 1 && P.tokens > 0) {
+      const opp = TB.real(s).find(p => p.id !== pid);
+      const cost = C.publicVP(s, pid) <= C.publicVP(s, opp.id) ? 1 : 2;
+      const home = s.board.hexes.find(h => h.terrain === 'desert' || h.terrain === 'swamp');
+      const rh = s.robber !== null ? s.board.hexes[s.robber] : null;
+      if (P.tokens >= cost && home && rh && rh.id !== home.id && rh.vertices.some(v => s.buildings[v] && s.buildings[v].owner === pid)) return { type: 'tokenAction', action: 'robberHome' };
+      if (P.tokens >= cost + 2 && total(opp.resources) >= 5 && total(P.resources) >= 4 && mem.forced !== s.turn) {
+        mem.forced = s.turn;
+        const give = {};
+        const h = Object.assign({}, P.resources);
+        for (let i = 0; i < 2; i++) { const k = RES.slice().sort((a, b) => h[b] - h[a])[0]; h[k]--; give[k] = (give[k] || 0) + 1; }
+        return { type: 'tokenAction', action: 'forcedTrade', give };
+      }
+    }
+    return undefined;
+  }
+  function tbDecide(s, pid, mem) {
+    const TB = C.TB, P = s.players[pid];
+    if (P.neutral) return null;
+    if (s.phase === 'tbGive') {
+      const pair = s.tb.pending.pairs.find(x => x.from === pid);
+      if (!pair) return null;
+      const k = tbSpare(P);
+      const to = pair.to !== null ? pair.to : TB.giveTargets(s, pid).sort((a, b) => C.publicVP(s, a) - C.publicVP(s, b))[0];
+      return { type: 'tbGive', resources: { [k]: 1 }, to };
+    }
+    if (s.phase === 'tbVote') return s.tb.vote.order[s.tb.vote.idx] === pid ? tbVote(s, pid) : null;
+    if (s.current !== pid) return undefined;
+    switch (s.phase) {
+      case 'tbSteal': {
+        const vs = TB.stealVictims(s, s.tb.pending ? s.tb.pending.by : pid).sort((a, b) => total(s.players[b].resources) + C.publicVP(s, b) - total(s.players[a].resources) - C.publicVP(s, a));
+        return { type: 'tbSteal', victim: vs[0] };
+      }
+      case 'tbNeutral': {
+        const opts = TB.neutralOptions(s, s.tb.neutralBuild.kind);
+        const opp = TB.real(s).find(p => p.id !== pid);
+        const val = o => o.kind === 'settlement' ? vertexValue(s, opp.id, o.at, null) : Math.max(...s.board.edges[o.at].v.map(v => freeSpot(s, v) ? vertexValue(s, opp.id, v, null) : 0));
+        const o = opts.sort((a, b) => val(b) - val(a))[0];
+        return { type: 'neutralBuild', pid: o.pid, at: o.at };
+      }
+      case 'tbKnight': {
+        const spots = TB.knightSpots(s, s.tb.knightPlace.any);
+        const myHex = h => h.vertices.some(v => s.buildings[v] && s.buildings[v].owner === pid);
+        const hot = s.board.hexes.filter(h => h.coastal && h.barbs);
+        const val = e => { const E = s.board.edges[e]; return hot.reduce((a, h) => a + (E.hexes.includes(h.id) ? (myHex(h) ? 6 : 3) : Math.max(0, 2 - Math.hypot(E.x - h.x, E.y - h.y))), 0) + Math.random() * 0.2; };
+        return { type: 'placeKnight', edge: spots.sort((a, b) => val(b) - val(a))[0] };
+      }
+      case 'tbTreason': {
+        const leader = tbLeader(s, pid);
+        const near = (h, p) => h.vertices.some(v => s.buildings[v] && s.buildings[v].owner === p);
+        const from = s.board.hexes.filter(h => h.coastal && h.barbs).sort((a, b) => (near(b, pid) ? 5 : 0) + b.barbs - (near(a, pid) ? 5 : 0) - a.barbs).slice(0, 2);
+        const to = s.board.hexes.filter(h => h.coastal && !h.conquered && h.barbs < 3 && !near(h, pid)).sort((a, b) => (near(b, leader.id) ? 5 : 0) - (near(a, leader.id) ? 5 : 0));
+        const moves = [];
+        from.forEach(f => { const t = to.find(x => x.id !== f.id && !moves.some(m => m.to === x.id)); if (t) moves.push({ from: f.id, to: t.id }); });
+        return { type: 'treason', moves };
+      }
+      case 'tbBarbarian': {
+        const leader = tbLeader(s, pid);
+        const W = P.wagon;
+        const from = s.tb.barbs.slice().sort((a, b) => {
+          const sc2 = e => (s.roads[e] && s.roads[e].owner === pid ? 5 : 0) + (W && W.v !== null ? Math.max(0, 4 - s.board.edges[e].v.reduce((m, v) => Math.min(m, vdist(s, v, W.v)), 9)) : 0);
+          return sc2(b) - sc2(a);
+        })[0];
+        const free = TB.barbFreeEdges(s);
+        const to = free.filter(e => s.roads[e] && s.roads[e].owner === leader.id && total(leader.resources) > 0)[0] ||
+          free.filter(e => !(s.roads[e] && s.roads[e].owner === pid)).sort((a, b) => edist(s, b, from) - edist(s, a, from))[0];
+        return { type: 'moveBarbarian', from, to };
+      }
+      case 'tbMove': {
+        if (mem.tbMoveTurn !== s.turn + ':' + (s.tb.p2 ? 2 : 1)) { mem.tbMoveTurn = s.turn + ':' + (s.tb.p2 ? 2 : 1); mem.mvActs = 0; mem.knMoved = {}; }
+        if (++mem.mvActs > 30) return { type: 'endTurn' };
+        if (s.tb.scenario === 4) { const m = tbKnightMoves(s, pid, mem); if (m) return m; }
+        if (s.tb.scenario === 5) { const m = tbWagon(s, pid, mem); if (m) return m; }
+        return { type: 'endTurn' };
+      }
+      case 'main': return tbMain(s, pid, mem);
+    }
+    return undefined;
+  }
+
   // Decide la próxima acción. mem: memoria por bot (persistente entre llamadas)
   function decide(s, pid, mem) {
     mem = mem || {};
+    if (s.phase !== 'ended' && s.tb && s.phase !== 'setup') {
+      const r = tbDecide(s, pid, mem);
+      if (r !== undefined) return r;
+    }
+    const a = decideBase(s, pid, mem);
+    if (a && s.tb && s.phase === 'main' && s.current === pid) {
+      if (a.type === 'offerTrade' && s.tb.p2) return C.TB.hasMove(s) ? { type: 'startMove' } : { type: 'endTurn' };
+      if (a.type === 'endTurn' && C.TB.hasMove(s)) return { type: 'startMove' };
+      if (a.type === 'buildRoad' && s.players[pid].damaged !== null) return C.TB.hasMove(s) ? { type: 'startMove' } : { type: 'endTurn' };
+    }
+    return a;
+  }
+
+  function decideBase(s, pid, mem) {
+    mem = mem || {};
     const P = s.players[pid];
     if (s.phase === 'ended') return null;
+    if (C.isPE && C.isPE(s)) return peDecide(s, pid, mem);
     if (C.isCK && C.isCK(s) && s.phase !== 'setup') {
       const r = ckDecide(s, pid, mem);
       if (r !== undefined) return r;
@@ -597,7 +1040,7 @@
     if (s.trade && s.trade.from === pid) {
       const acc = Object.keys(s.trade.responses).filter(k => s.trade.responses[k] === 'accept').map(Number);
       if (acc.length) return { type: 'confirmTrade', with: acc[0] };
-      const others = s.players.filter(p => p.id !== pid).length;
+      const others = s.players.filter(p => p.id !== pid && !p.neutral).length;
       if (Object.keys(s.trade.responses).length >= others || mem.tradeExpired) { mem.tradeExpired = false; return { type: 'cancelTrade' }; }
       return { type: 'wait' };
     }

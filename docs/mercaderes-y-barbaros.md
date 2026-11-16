@@ -72,4 +72,5 @@ Fuente: reglamento oficial 2015 (Variant Rules & Campaign Scenarios) y su amplia
 
 ## Estado en el juego
 
-No implementado (queda para el final, por pedido). Ya existe el "ladrón amistoso" como opción en todos los modos.
+En curso (en pausa): motor, tableros e IA hechos; falta conectar la interfaz, el menú, las pruebas y la documentación.
+Detalle en [estado-mercaderes-y-barbaros.md](estado-mercaderes-y-barbaros.md). El "ladrón amistoso" ya existe como opción en todos los modos.

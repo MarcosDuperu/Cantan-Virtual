@@ -81,15 +81,36 @@ Es una campaña de 5 escenarios que suman reglas poco a poco.
 
 ## Estado en el juego
 
-No implementado. Es la siguiente expansión en la lista.
+Implementado para **2 a 6 jugadores** y los 5 escenarios (se eligen en las opciones de la partida):
+`src/js/engine/pe.js` (reglas), `src/js/ui/pe-ui.js` (interfaz), IA en `src/js/engine/ai.js`,
+mapas en `src/js/engine/board.js`, pruebas en `tools/test-pe.js`.
 
-Requiere piezas y mecánicas nuevas:
-- movimiento de barcos con puntos;
-- hexágonos ocultos;
-- bodegas y muelles;
-- misiones con marcadores;
-- oro como moneda.
-
-Datos que el reglamento no da y habrá que decidir o buscar:
-- la tabla de PV de cada casilla de las cartas de misión;
-- la disposición exacta de los mapas (vienen en las ilustraciones).
+- **Reglas**: hexágonos ocultos y descubrimiento (recurso o 2 oro), oro y compensación, comercio 3:1 / 3 → 1 oro /
+  2 oro → 1 recurso (2 por turno), fases de comercio-construcción y de movimiento, poblados portuarios (2 PV) con muelle,
+  barcos con 4 movimientos (+2 por 1 lana) y bodega, máximo 2 barcos por ruta, colonos, tripulaciones, transbordo,
+  barco pirata (7, robo, tributo, ahuyentar con un 6), guaridas (3 tripulaciones, héroe con el desempate oficial,
+  tripulaciones que quedan en la guarida y se recogen en barco, el río de oro toma el número de la ficha de guarida),
+  pescado con dado y reserva de cargas, Consejo de Catan (cuenta como mar; solo se construye en el lado de la isla),
+  islas de especias (1 tripulación por jugador y aldea, construir en sus esquinas solo tras dejarla) y sus ventajas
+  acumulables (2 aldeas de cada una: Viaje rápido +1 cada una, Bonificación pirata 4 y 5, Oro rápido 1 venta cada una).
+- **Mapas** con la estructura y las cantidades oficiales: isla inicial del juego base (19 hexágonos, con desierto; 21 en 5-6),
+  Consejo junto a su costa este (escenarios 3-5) y dos zonas inexploradas, norte (luna verde) y sur (sol naranja),
+  separadas por mar, cada una con su pila de fichas numéricas. Hexágonos ocultos por escenario: 16 / 22 / 22 / 26 / 32
+  (3-4 jugadores) y 20 / 28 / 32 / 32 / 40 (5-6), con las guaridas, bancos de pesca e islas de especias de cada zona
+  según el reglamento.
+- **2 jugadores**: tras los portuarios, cada uno coloca un portuario neutral y luego un poblado neutral (obstáculos grises
+  que no producen ni dan puntos).
+- **5-6 jugadores en pareja**: el jugador 1 tira, comercia con todos, construye y mueve barcos; después el jugador 2
+  (el tercero a su izquierda) solo comercia con el banco, construye y mueve sus barcos (y puede ganar); luego pasa el turno.
+  Banco de 24, 8 guaridas, 8 cargas de pescado y fichas extra (verde 2, 5, 9; naranja 3, 4, 10).
+- **Lo que solo está en las ilustraciones** del reglamento y aquí es propio:
+  - PV de las pistas de misión: casillas 1 a 7 → 1, 1, 2, 2, 3, 3, 4 PV (el líder suma 1 PV).
+  - Posición exacta de cada hexágono y ficha; las fichas de la isla inicial se reparten al azar sin 6/8 juntos.
+  - Tipos de las 12 losetas estándar de las zonas inexploradas y valores de sus fichas y de las fichas de guarida
+    (las de la ampliación 5-6 sí son las oficiales).
+  - Sitios marcados para los portuarios: cualquier esquina costera de la isla inicial.
+  - Escenario 1 con colocación libre (el original usa posiciones fijas) y, en 5-6, deducido del escenario 2 sin guaridas
+    (el reglamento recomienda no jugarlo).
+- **Otras simplificaciones**: la captura de una guarida se resuelve al momento (no al final de la fase de movimiento);
+  el dado de pesca se tira solo al empezar la fase de movimiento (y no en la parte del jugador 2); el tributo pirata se
+  paga al banco; el oro no se ofrece en el comercio entre jugadores; no se puede retirar un barco para reconstruirlo.

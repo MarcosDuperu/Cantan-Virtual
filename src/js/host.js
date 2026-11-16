@@ -11,7 +11,7 @@
     { id: 'brown', hex: '#7a4a24', name: 'Marrón' }
   ];
   C.COLORS = COLORS;
-  C.colorHex = id => (COLORS.find(c => c.id === id) || COLORS[0]).hex;
+  C.colorHex = id => id === 'neutral' ? '#9b9890' : (COLORS.find(c => c.id === id) || COLORS[0]).hex;
 
   const SPEED = { slow: 1.6, normal: 1, fast: 0.45 };
 
@@ -101,6 +101,7 @@
         if (p !== undefined) return p;
         if (s.phase === 'give') { const g = Object.keys(s.pendingGive).map(Number).find(isBot); return g === undefined ? null : g; }
       }
+      if (s.tb) { const w = C.TB.waiting(s); if (w) { const p = w.find(isBot); return p === undefined ? null : p; } }
       if (s.phase === 'discard') { const p = Object.keys(s.pendingDiscard).map(Number).find(isBot); return p === undefined ? null : p; }
       if (s.phase === 'gold') { const p = Object.keys(s.pendingGold).map(Number).find(isBot); return p === undefined ? null : p; }
       if (s.phase === 'main' && s.trade) {
@@ -145,12 +146,12 @@
       if (this.tradeTimer && !(s.trade && s.trade.from === pid)) { clearTimeout(this.tradeTimer); this.tradeTimer = null; }
       if (a && (a.type === 'confirmTrade' || a.type === 'cancelTrade') && this.tradeTimer) { clearTimeout(this.tradeTimer); this.tradeTimer = null; }
       if (!a) return;
-      if (pid === s.current && s.phase === 'main' && ++this.turnActions > 60) {
+      if (pid === s.current && (s.phase === 'main' || s.phase === 'move' || s.phase === 'tbMove') && ++this.turnActions > 60) {
         a = s.players[pid].progress && s.players[pid].progress.length > 4 ? { type: 'discardProgress', index: 0 } : { type: 'endTurn' };
       }
       let r = C.apply(s, pid, a);
       if (r.error) {
-        const fb = s.phase === 'main' ? { type: 'endTurn' } : s.phase === 'roadBuilding' ? { type: 'endRoadBuilding' } : s.phase === 'specialBuild' ? { type: 'endTurn' } : null;
+        const fb = s.phase === 'main' || s.phase === 'move' || s.phase === 'tbMove' ? { type: 'endTurn' } : s.phase === 'roadBuilding' ? { type: 'endRoadBuilding' } : s.phase === 'specialBuild' ? { type: 'endTurn' } : null;
         if (fb) r = C.apply(s, pid, fb);
         if (r.error) console.warn('Bot atascado', s.phase, a, r.error);
       }

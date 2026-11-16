@@ -14,8 +14,10 @@
   };
 
   const VP_VARIANTS = {
-    university: 'Universidad', market: 'Mercado', library: 'Biblioteca', chapel: 'Capilla', hall: 'Gran Salón'
+    university: 'Universidad', market: 'Mercado', library: 'Biblioteca', chapel: 'Capilla', hall: 'Gran Salón',
+    toolmaking: 'Herrería', glassmaking: 'Vidriería', quarry: 'Cantera'
   };
+  const VP_SCENE = { toolmaking: 'hall', glassmaking: 'library', quarry: 'market' };
 
   const hills = (a = '#7cb655', b = '#5a9a3c') => `<path d="M0,74 Q22,60 46,70 T100,64 V110 H0Z" fill="${a}"/><path d="M0,88 Q40,76 100,86 V110 H0Z" fill="${b}"/>`;
   const cloud = (x, y, k = 1) => `<g transform="translate(${x},${y}) scale(${k})" fill="#fff" opacity=".9"><ellipse cx="0" cy="0" rx="8" ry="4"/><ellipse cx="6" cy="-2" rx="6" ry="4"/><ellipse cx="-6" cy="1" rx="5" ry="3"/></g>`;
@@ -284,8 +286,9 @@
     if (type === 'knight') return card('knight', 'knight', 'Caballero');
     if (type === 'vp') {
       const v = VP_VARIANTS[variant] ? variant : 'university';
-      return card(v, 'vp', VP_VARIANTS[v], 1);
+      return card(VP_SCENE[v] || v, 'vp', VP_VARIANTS[v], 1);
     }
+    if (type === 'swiftJourney') return card('roadBuilding', 'progress', 'Viaje rápido');
     if (type === 'roadBuilding') return card('roadBuilding', 'progress', 'Construcción de carreteras');
     if (type === 'yearOfPlenty') return card('yearOfPlenty', 'progress', 'Descubrimiento');
     if (type === 'monopoly') return card('monopoly', 'progress', 'Monopolio');
@@ -302,6 +305,7 @@
     roadBuilding: 'Construye gratis 2 carreteras (o barcos en Navegantes).',
     yearOfPlenty: 'Toma 2 cartas de recurso cualesquiera del banco.',
     monopoly: 'Elige un recurso: todos los jugadores te entregan todas sus cartas de ese tipo.',
+    swiftJourney: 'Si ya moviste tu carreta este turno, puedes moverla otra vez con todos sus movimientos.',
     longestRoad: 'La tiene quien posee la ruta continua más larga (mínimo 5 tramos). Vale 2 PV.',
     largestArmy: 'La tiene quien ha jugado más caballeros (mínimo 3). Vale 2 PV.'
   };

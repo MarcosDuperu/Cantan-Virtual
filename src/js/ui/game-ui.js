@@ -99,7 +99,7 @@
         if (e.key === 'Escape') { this.setMode(null); }
         if (!this.view) return;
         if ((e.key === 'r' || e.key === 'R' || e.key === ' ') && this.canRoll()) { e.preventDefault(); this.send({ type: 'roll' }); }
-        if ((e.key === 'e' || e.key === 'E') && this.isMyMain()) this.endTurn();
+        if ((e.key === 'e' || e.key === 'E') && (this.isMyMain() || (['move', 'tbMove'].includes(this.view.phase) && this.isMyTurn()))) this.endTurn();
       };
       document.addEventListener('keydown', this.keyHandler);
     }
@@ -146,6 +146,8 @@
         if (ev.seq <= this.lastEvent) continue;
         this.lastEvent = ev.seq;
         if (this.isCK() && this.ckEvent(ev, v)) continue;
+        if (this.isPE() && this.peEvent(ev, v)) continue;
+        if (this.isTB() && this.tbEvent(ev, v)) continue;
         if (ev.type === 'roll') { this.animateDice(ev.dice, ev.eventDie); C.Sound.play('dice'); }
         else if (ev.type === 'build') C.Sound.play(ev.what);
         else if (ev.type === 'robber') C.Sound.play(ev.pirate ? 'pirate' : 'robber');
@@ -173,16 +175,20 @@
     // ---------- render ----------
     render() {
       const v = this.view;
-      this.$.mode.textContent = ' · ' + C.MODES[v.mode].name + ' · ' + v.vpTarget + ' PV';
+      this.$.mode.textContent = ' · ' + (this.isPE() ? 'P&E: ' + C.PE.SCENARIOS[v.pe.scenario].name : this.isTB() && v.tb.scenario ? 'M&B: ' + C.TB.SCENARIOS[v.tb.scenario].name : C.MODES[v.mode].name) + ' · ' + v.vpTarget + ' PV';
       this.$.turn.textContent = v.phase === 'setup' ? 'Colocación inicial' : 'Turno ' + v.turn;
       if (this.isCK()) {
         this.$.bank.innerHTML = C.KEYS.map(k => `<span class="bk">${icon(k, 16)}${v.bank[k]}</span>`).join('') +
           C.CK.AREAS.map(a => `<span class="bk" title="Cartas de progreso de ${C.CK.AREA_NAME[a]}"><i class="mini-card prog" style="background:${C.CK.AREA_COLOR[a]}"></i>${v.ck.decks[a]}</span>`).join('');
+      } else if (this.isPE()) {
+        this.$.bank.innerHTML = RES.map(k => `<span class="bk">${icon(k, 18)}${v.bank[k]}</span>`).join('');
       } else {
         this.$.bank.innerHTML = RES.map(k => `<span class="bk">${icon(k, 18)}${v.bank[k]}</span>`).join('') +
           `<span class="bk">${icon('knight', 18)}${v.devDeck}</span>`;
       }
       this.ckRenderTrack();
+      this.peRenderPanel();
+      this.tbRenderPanel();
       if (this.impDraw) this.impDraw();
       this.renderPlayers();
       this.renderBanner();
@@ -190,6 +196,8 @@
       this.renderHand();
       this.renderActions();
       this.renderTrade();
+      this.peRenderShipPanel();
+      this.tbRenderFloat();
       this.renderLog();
       if (!this.diceAnimating) this.renderDice(v.dice);
       this.checkModals();
@@ -208,7 +216,7 @@
         if (v.pendingDiscard && v.pendingDiscard[p.id]) waiting = '<span class="pc-wait">descartando…</span>';
         if (v.pendingGold && v.pendingGold[p.id]) waiting = '<span class="pc-wait">eligiendo oro…</span>';
         const vp = p.id === v.me || v.phase === 'ended' ? (p.vpTotal !== undefined ? p.vpTotal : p.vp) : p.vp;
-        const ck = this.isCK() ? this.ckPlayerExtra(p) : null;
+        const ck = this.isCK() ? this.ckPlayerExtra(p) : this.isPE() ? this.pePlayerExtra(p) : this.isTB() ? this.tbPlayerExtra(p) : null;
         if (ck) tags.push(...ck.tags);
         return `<div class="pcard ${cur ? 'current' : ''} ${p.id === v.me ? 'mine' : ''}" style="--pc:${C.colorHex(p.color)}">
           <div class="pc-avatar">${esc(p.avatar || p.name[0])}</div>
@@ -230,6 +238,8 @@
     statusText() {
       const v = this.view, me = this.me;
       if (this.isCK()) { const t = this.ckStatus(); if (t) return t; }
+      if (this.isPE()) { const t = this.peStatus(); if (t) return t; }
+      if (this.isTB()) { const t = this.tbStatus(); if (t) return t; }
       const cur = v.players[v.current];
       const who = this.pname(v.current);
       switch (v.phase) {
@@ -270,6 +280,8 @@
     highlights() {
       const v = this.view, me = this.me;
       if (this.isCK()) { const h = this.ckHighlights(); if (h) return h; }
+      if (this.isPE()) return this.peHighlights();
+      if (this.isTB()) { const h = this.tbHighlights(); if (h) return h; }
       const hl = {};
       if (v.phase === 'setup' && v.current === me) {
         if (v.setup.step === 'settlement') hl.vertices = C.validSettlements(v, me, true);
@@ -300,6 +312,7 @@
     renderHand() {
       const P = this.P;
       if (this.isCK()) return this.ckRenderHand();
+      if (this.isPE()) return this.peRenderHand();
       this.$.hand.innerHTML = RES.map(k => `<div class="rcard r-${k} ${P.resources[k] ? '' : 'empty'}" title="${C.RES_NAME[k]}">
         <div class="rc-art">${icon(k, 46)}</div><div class="rc-name">${C.RES_NAME[k]}</div><div class="rc-count">${P.resources[k]}</div></div>`).join('');
       const groups = new Map();
@@ -322,17 +335,19 @@
       if (this.view.longestRoad === this.me) sp.push('longestRoad');
       if (this.view.largestArmy === this.me) sp.push('largestArmy');
       this.$.specials.innerHTML = sp.map(k => `<div class="scard" title="${help[k]}">${C.CardArt.specialCard(k)}</div>`).join('');
+      if (this.isTB()) this.tbHandExtras();
     }
 
     renderActions() {
       if (this.isCK()) return this.ckRenderActions();
+      if (this.isPE()) return this.peRenderActions();
       const v = this.view, P = this.P, ships = C.MODES[v.mode].ships;
       const build = this.isMyBuild();
       const main = this.isMyMain();
       const btn = (act, label, ic, enabled, cost, extra = '') => `<button class="abtn ${this.mode === act ? 'active' : ''} ${extra}" data-a="${act}" ${enabled ? '' : 'disabled'}>
         <span class="ab-ic">${ic}</span><span class="ab-l">${label}</span>${cost ? `<span class="ab-cost">${RES.filter(k => cost[k]).map(k => icon(k, 13).repeat(cost[k])).join('')}</span>` : ''}</button>`;
       let html = '';
-      if (v.phase === 'roll' && this.isMyTurn()) html += `<button class="abtn primary roll" data-a="roll"><span class="ab-ic">🎲</span><span class="ab-l">Tirar dados</span></button>`;
+      if (v.phase === 'roll' && this.isMyTurn()) html += `<button class="abtn primary roll" data-a="roll"><span class="ab-ic">${v.tb && v.tb.events ? '🂠' : '🎲'}</span><span class="ab-l">${v.tb && v.tb.events ? 'Carta de evento' : 'Tirar dados'}${v.tb && v.tb.two && v.tb.rolls === 1 ? ' (2.ª)' : ''}</span></button>`;
       if (v.phase === 'roadBuilding' && this.isMyTurn()) html += `<button class="abtn" data-a="endRoadBuilding"><span class="ab-l">Terminar construcción gratis</span></button>`;
       html += btn('road', 'Carretera', pieceSVG('road', P.color, 26), build && P.pieces.road > 0 && this.afford('road') && C.validRoutes(v, this.me, 'road').length, C.COST.road);
       if (ships) html += btn('ship', 'Barco', pieceSVG('ship', P.color, 26), build && P.pieces.ship > 0 && this.afford('ship') && C.validRoutes(v, this.me, 'ship').length, C.COST.ship);
@@ -342,7 +357,11 @@
       if (ships) html += btn('moveFrom', 'Mover barco', '⛵', main && C.movableShips(v, this.me).length > 0, null);
       html += btn('trade', 'Comerciar', '⇄', main && !v.trade, null);
       if (v.phase === 'specialBuild' && v.specialBuilder === this.me) html += `<button class="abtn primary" data-a="pass"><span class="ab-l">Pasar</span></button>`;
-      else html += `<button class="abtn end ${main ? 'primary' : ''}" data-a="end" ${main ? '' : 'disabled'}><span class="ab-l">Terminar turno</span></button>`;
+      else {
+        const canEnd = main || (this.isTB() && v.phase === 'tbMove' && this.isMyTurn());
+        if (this.isTB()) html += this.tbActionsHTML();
+        html += `<button class="abtn end ${canEnd ? 'primary' : ''}" data-a="end" ${canEnd ? '' : 'disabled'}><span class="ab-l">Terminar turno</span></button>`;
+      }
       html += `<div class="pieces-left" title="Piezas restantes">${pieceSVG('road', P.color, 16)}${P.pieces.road}
         ${ships ? pieceSVG('ship', P.color, 16) + P.pieces.ship : ''} ${pieceSVG('settlement', P.color, 16)}${P.pieces.settlement} ${pieceSVG('city', P.color, 16)}${P.pieces.city}</div>`;
       this.$.actions.innerHTML = html;
@@ -354,6 +373,8 @@
       C.Sound.play('click');
       const a = b.dataset.a;
       if (this.isCK() && this.ckAction(a)) return;
+      if (this.isPE() && this.peAction(a)) return;
+      if (this.isTB() && this.tbAction(a)) return;
       if (a === 'roll') this.send({ type: 'roll' });
       else if (a === 'end') this.endTurn();
       else if (a === 'pass') this.send({ type: 'endTurn' });
@@ -374,12 +395,16 @@
       this.moveFrom = null;
       if (m !== 'prog') this.prog = null;
       if (m !== 'kto') this.kFrom = null;
+      this.peShip = null;
+      if (m !== 'tb') this.tbSel = null;
       if (!silent && this.view) this.render();
     }
 
     boardClick(kind, id) {
       const v = this.view, me = this.me;
       if (this.isCK() && this.ckBoardClick(kind, id)) return;
+      if (this.isPE() && this.peBoardClick(kind, id)) return;
+      if (this.isTB() && this.tbBoardClick(kind, id)) return;
       if (v.phase === 'setup' && v.current === me) {
         if (kind === 'vertex') this.send({ type: 'buildSettlement', vertex: id });
         if (kind === 'edge') this.chooseRouteKind(id, v.setup.vertex);
@@ -470,6 +495,7 @@
     renderDice(d) {
       if (!d) { this.$.dice.innerHTML = ''; return; }
       if (this.isCK()) { this.$.dice.innerHTML = this.ckDiceHTML(d, this.view.ck.event); return; }
+      if (this.isTB() && this.view.tb.events && this.view.tb.lastEvent) { this.$.dice.innerHTML = this.tbEventCardHTML(this.view.tb.lastEvent); return; }
       this.$.dice.innerHTML = `<div class="die">${DIE(d[0])}</div><div class="die">${DIE(d[1])}</div><div class="dice-sum ${d[0] + d[1] === 7 ? 'seven' : ''}">${d[0] + d[1]}</div>`;
     }
     animateDice(final) {
@@ -560,8 +586,10 @@
       const st = { tab: 'bank', give: null, get: null, n: 1, offerGive: zero(), offerGet: zero(), to: 'all' };
       const draw = (m) => {
         const others = v.players.filter(p => p.id !== me);
-        let html = `<h2>Comerciar</h2><div class="tabs"><button class="tab ${st.tab === 'bank' ? 'on' : ''}" data-tab="bank">Banco y puertos</button>
-          <button class="tab ${st.tab === 'players' ? 'on' : ''}" data-tab="players">Con jugadores</button></div>`;
+        const bankOnly = this.isPE() && v.pe.p2;
+        if (bankOnly) st.tab = 'bank';
+        let html = `<h2>Comerciar</h2><div class="tabs"><button class="tab ${st.tab === 'bank' ? 'on' : ''}" data-tab="bank">${this.isPE() ? 'Banco' : 'Banco y puertos'}</button>
+          ${bankOnly ? '' : `<button class="tab ${st.tab === 'players' ? 'on' : ''}" data-tab="players">Con jugadores</button>`}</div>`;
         if (st.tab === 'bank') {
           const maxN = st.give ? Math.floor(P.resources[st.give] / ratios[st.give]) : 0;
           if (st.n > maxN) st.n = Math.max(1, maxN);
@@ -622,8 +650,10 @@
         else this.toast('No puedes jugar una carta comprada en este turno');
         return;
       }
-      if (type === 'knight' || type === 'roadBuilding') {
-        this.confirm(`¿Jugar ${C.DEV_NAME[type]}?`, type === 'knight' ? 'Moverás el ladrón y robarás una carta.' : 'Construyes 2 carreteras gratis.', () => this.send({ type: 'playDev', card: type }));
+      if (type === 'knight' || type === 'roadBuilding' || type === 'swiftJourney') {
+        const txt = type === 'swiftJourney' ? C.CardArt.DEV_HELP.swiftJourney : type === 'roadBuilding' ? 'Construyes 2 carreteras gratis.'
+          : v.tb && v.tb.scenario === 5 ? 'Mueves un bárbaro; si lo pones sobre una carretera, robas 1 carta a su dueño.' : 'Moverás el ladrón y robarás una carta.';
+        this.confirm(`¿Jugar ${C.DEV_NAME[type]}?`, txt, () => this.send({ type: 'playDev', card: type }));
       } else if (type === 'yearOfPlenty') {
         this.pickResources('Descubrimiento', 'Elige 2 recursos del banco', 2, v.bank, r => this.send({ type: 'playDev', card: 'yearOfPlenty', resources: r }), true);
       } else if (type === 'monopoly') {
@@ -646,6 +676,7 @@
       else if (v.phase === 'gold' && v.pendingGold[me]) key = 'gold:' + v.rollSeq + ':' + v.turn + ':' + v.setup.index;
       else if (v.phase === 'ended') key = 'end';
       else if (this.isCK()) key = this.ckModalKey();
+      else if (this.isTB()) key = this.tbModalKey();
       if (this.modalKey && this.modalKey !== key && this.forcedClose) { this.forcedClose(); this.forcedClose = null; this.modalKey = null; }
       if (!key || key === this.modalKey) return;
       this.modalKey = key;
@@ -659,6 +690,8 @@
         this.forcedClose = this.pickResources('Río de oro', `Elige ${n} recurso(s) del banco`, n, v.bank, r => this.send({ type: 'chooseGold', resources: r }), false);
       } else if (key === 'end') {
         this.showGameOver();
+      } else if (this.isTB()) {
+        this.forcedClose = this.tbOpenModal(key);
       } else {
         this.forcedClose = this.ckOpenModal(key);
       }
@@ -733,6 +766,8 @@
         <span class="cr-c">${RES.filter(k => cost[k]).map(k => icon(k, 22).repeat(cost[k])).join('')}</span><span class="cr-v">${pts}</span></div>`;
       const col = this.P.color;
       if (this.isCK()) { this.modal(this.ckCosts(), { dismiss: true, cls: 'wide' }); return; }
+      if (this.isPE()) { this.modal(this.peCosts(), { dismiss: true, cls: 'wide' }); return; }
+      if (this.isTB() && this.view.tb.scenario) { this.modal(this.tbCosts(), { dismiss: true, cls: 'wide' }); return; }
       this.modal(`<h2>Costes de construcción</h2><div class="costs">
         ${row(pieceSVG('road', col, 30), 'Carretera', C.COST.road, '0 PV')}
         ${C.MODES[this.view.mode].ships ? row(pieceSVG('ship', col, 30), 'Barco', C.COST.ship, '0 PV') : ''}
@@ -742,7 +777,7 @@
         <p class="muted">Gran Ruta Comercial (5+ tramos seguidos) y Gran Ejército (3+ caballeros): 2 PV cada uno.</p>`, { dismiss: true });
     }
     openRules() {
-      const rk = { cities56: 'citiesAll', extended: 'classic56' }[this.view.mode] || this.view.mode;
+      const rk = { cities56: 'citiesAll', extended: 'classic56', explorers56: 'explorers', traders56: 'traders' }[this.view.mode] || this.view.mode;
       this.modal(`<div class="rules-modal">${C.RULES_TEXT[rk] || ''}</div><button class="modal-x" data-close>×</button>`, {
         dismiss: true, cls: 'wide',
         mount: (m, close) => m.addEventListener('click', e => { if (e.target.closest('[data-close]')) close(); })

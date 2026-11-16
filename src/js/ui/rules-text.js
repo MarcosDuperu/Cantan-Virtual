@@ -135,7 +135,77 @@
   <li>Se gana con 13 PV.</li></ul>`;
 
   const TRADERS = `<h2>Mercaderes y Bárbaros</h2><p>Próximamente. Esta expansión se añadirá cuando apruebes Ciudades y Caballeros.</p>`;
-  const EXPLORERS = `<h2>Piratas y Exploradores</h2><p>Próximamente.</p>`;
+  const EXPLORERS = `
+  <h2>Piratas y Exploradores (2-6 jugadores)</h2>
+  <p>Una campaña de 5 escenarios. Empiezas en la isla del juego básico; al este hay dos zonas <b>sin descubrir</b>
+  (norte y sur, separadas por mar) que se revelan navegando. Se gana con los PV del escenario, en tu propio turno.</p>
+  <table class="rules-table"><tr><th>#</th><th>Escenario</th><th>Misiones</th><th>Ocultos (3-4 / 5-6)</th><th>PV</th></tr>
+  <tr><td>1</td><td>¡Tierra a la vista!</td><td>Solo explorar y colonizar (sin pirata)</td><td>16 / 20</td><td>8</td></tr>
+  <tr><td>2</td><td>Guaridas piratas</td><td>Guaridas piratas</td><td>22 / 28</td><td>12</td></tr>
+  <tr><td>3</td><td>Pescado para Catan</td><td>Guaridas + Pescado</td><td>22 / 32</td><td>15</td></tr>
+  <tr><td>4</td><td>Especias para Catan</td><td>Pescado + Especias</td><td>26 / 32</td><td>15</td></tr>
+  <tr><td>5</td><td>Exploradores y piratas</td><td>Las tres</td><td>32 / 40</td><td>17</td></tr></table>
+  <h3>Diferencias con el juego básico</h3>
+  <ul><li><b>No hay</b> ciudades, cartas de desarrollo, Gran Ruta, Gran Ejército ni ladrón. Con un 7 se sigue descartando la mitad si tienes más de 7 cartas.</li>
+  <li><b>Oro:</b> empiezas con 2. Si una tirada (que no sea 7) no te da nada, recibes <b>1 oro</b>. Los ríos de oro liberados dan <b>2 oro</b> por poblado.
+  El oro no cuenta para el límite de 7 cartas.</li>
+  <li><b>Comercio:</b> no hay puertos; siempre <b>3:1</b> con el banco, o 3 iguales → 1 oro. Dos veces por turno puedes cambiar <b>2 oro → 1 recurso</b>.
+  Con otros jugadores se comercia como siempre.</li></ul>
+  <h3>Preparación</h3>
+  <p>En orden, cada jugador coloca un <b>poblado portuario</b> en la costa de la isla inicial y un <b>poblado</b> (recibe los recursos de este).
+  Después, empezando por quien puso el último poblado, cada uno coloca una <b>carretera</b> junto a su poblado y un <b>barco con un colono</b>
+  junto a su poblado portuario.</p>
+  <h3>El turno</h3>
+  <ol><li><b>Producción:</b> tira los dados.</li>
+  <li><b>Comercio y construcción.</b></li>
+  <li><b>Movimiento</b> (botón «Mover barcos»): ya no puedes comerciar ni construir, salvo fundar un poblado con un barco colono.</li></ol>
+  <h3>Piezas y costes</h3>
+  <ul><li><b>Carretera</b> (madera + arcilla) y <b>poblado</b> (madera + arcilla + lana + cereal): como siempre, pero nunca junto a hexágonos sin descubrir.</li>
+  <li><b>Poblado portuario</b> (2 cereal + 2 mineral): mejora un poblado de la costa. Vale <b>2 PV</b> y produce 1 recurso. Tiene un <b>muelle</b>
+  para 1 pieza grande (colono, pescado) o 2 pequeñas (tripulaciones, especias).</li>
+  <li><b>Barco</b> (madera + lana, máximo 3): en una ruta marítima junto a tu poblado portuario. Su bodega es como un muelle.</li>
+  <li><b>Colono</b> (como un poblado, máximo 2) y <b>tripulación</b> (mineral + lana, máximo 9): se colocan en un muelle o en un barco junto a él.</li></ul>
+  <h3>Barcos y exploración</h3>
+  <ul><li>Cada barco tiene <b>4 movimientos</b> por turno; pagando 1 lana, +2 (una vez por barco y turno). Avanza de arista en arista por el mar
+  (máximo 2 barcos por ruta; se puede pasar por rutas ocupadas).</li>
+  <li><b>Descubrir:</b> si un extremo del barco llega a una esquina de un hexágono oculto, se revela. Un terreno recibe una ficha de la pila de su zona
+  y te da 1 recurso; cualquier otro hexágono te da 2 oro. Descubrir termina el movimiento de ese barco.</li>
+  <li><b>Fundar:</b> un barco con colono que apunta a una esquina de tierra funda allí un poblado gratis (respetando la distancia).
+  El barco y el colono vuelven a tu reserva. Así se llega a las islas nuevas.</li>
+  <li><b>Transbordo:</b> con el barco junto a tu poblado portuario puedes cargar y descargar el muelle.</li></ul>
+  <h3>El barco pirata (escenarios 2-5)</h3>
+  <ul><li>Quien saca un 7 coloca o mueve <b>su</b> barco pirata (solo hay uno en el tablero) en un mar que no toque la isla inicial ni el borde,
+  y roba 1 carta (o 1 oro) a un dueño de barco junto a él. Si cae en un banco de pesca, su pescado desaparece.</li>
+  <li>Pasar por una ruta del hexágono pirata cuesta <b>1 oro de tributo</b> por barco y turno (salvo al dueño del pirata).</li>
+  <li><b>Ahuyentar:</b> un barco que no se movió este turno y apunta al hexágono pirata tira un dado; con un <b>6</b> echa al pirata,
+  colocas el tuyo y robas. El barco ya no se mueve ese turno.</li></ul>
+  <h3>Misiones</h3>
+  <ul><li><b>Guaridas piratas:</b> los ríos de oro aparecen con una guarida (no producen ni se construye junto a ellos hasta capturarla).
+  Lleva tripulaciones en barco y desembárcalas allí; con la <b>3.ª</b> se captura: cada participante recibe 2 oro y avanza 1.
+  El <b>héroe</b> (dado + número de sus tripulaciones; en empate, quien puso más; si sigue, se repite) avanza 1 más y devuelve una
+  tripulación a su reserva. Las demás quedan junto a la guarida y cada dueño puede recogerlas con un barco.
+  El río de oro recibe el número de la ficha de guarida.</li>
+  <li><b>Pescado:</b> los bancos de pesca tienen un número del 1 al 6. Al empezar la fase de movimiento se tira un dado y aparece pescado
+  en ese banco (si quedan cargas). Un barco vacío que apunta al banco lo carga (ocupa toda la bodega); entregarlo en el <b>Consejo de Catan</b>
+  (la isla junto a la costa este de la isla inicial) avanza 1.</li>
+  <li><b>Especias:</b> en cada isla de especias puedes dejar 1 tripulación (se queda allí) y cargar 1 especia; entregarla en el Consejo avanza 1.
+  Desde entonces tienes la ventaja de esa aldea y puedes construir en sus esquinas. Hay dos aldeas de cada ventaja (una por zona):
+  <b>Viaje rápido</b> (+1 movimiento a todos tus barcos por aldea), <b>Bonificación pirata</b> (una aldea añade el 4 y otra el 5 a los
+  números que ahuyentan al pirata) y <b>Oro rápido</b> (en tu fase de comercio vendes 1 recurso por 1 oro, una vez por aldea).</li>
+  <li><b>Puntos de misión:</b> cada pista da 1, 1, 2, 2, 3, 3, 4 PV según la casilla (1 a 7). Quien va más adelantado tiene la carta de la misión (+1 PV);
+  en empate la conserva quien llegó primero.</li></ul>
+  <h3>2 jugadores</h3>
+  <p>Después de colocar sus poblados portuarios, cada jugador coloca un <b>poblado portuario neutral</b> y luego un <b>poblado neutral</b> (grises).
+  Son obstáculos: no producen ni dan puntos.</p>
+  <h3>Ampliación 5-6: jugadores en pareja</h3>
+  <ul><li>Se juega con una isla inicial de 21 hexágonos, banco de 24 cartas por recurso, 8 guaridas, 8 cargas de pescado y zonas inexploradas más grandes.</li>
+  <li>El <b>jugador 1</b> (el de turno) tira los dados, comercia con todos, construye y mueve sus barcos.</li>
+  <li>Después juega el <b>jugador 2</b> (el tercero a su izquierda): <b>solo comercia con el banco</b>, construye y mueve sus barcos.
+  También puede ganar en ese momento.</li>
+  <li>Luego el turno pasa al siguiente jugador. Se recomienda empezar por el escenario 2.</li></ul>
+  <p class="muted">Adaptación: la composición de las zonas, las cantidades y las reglas siguen el reglamento oficial; las posiciones exactas de las fichas
+  de la isla inicial, los sitios marcados para portuarios, el tipo de las 12 losetas estándar, los valores de las fichas y la tabla de PV de misión
+  solo aparecen en las ilustraciones, así que aquí son propios. La colocación es libre en todos los escenarios.</p>`;
 
   const VARIANTS = `
   <h2>Variantes opcionales</h2>

@@ -27,7 +27,10 @@ El ícono está en `build/icon.svg`; para regenerar los PNG: `npx electron tools
 - **Navegantes: Hacia nuevas costas** (barcos, islas, pirata, oro, 14 PV; 3-4 jugadores)
 - **Ciudades y Caballeros** (13 PV; 3-4 jugadores, 5-6 con su ampliación): mercancías, dado de eventos,
   bárbaros, caballeros, murallas, mejoras de ciudad, metrópolis y 54 cartas de progreso
-- Mercaderes y Bárbaros, Piratas y Exploradores: próximamente
+- **Piratas y Exploradores** (5 escenarios de 8 a 17 PV; 2 jugadores con piezas neutrales, 3-4, y 5-6 con jugadores
+  en pareja): mar sin descubrir, barcos con puntos de movimiento, colonos, oro, barco pirata, guaridas piratas,
+  pescado y especias para el Consejo de Catan
+- Mercaderes y Bárbaros: próximamente
 
 ## LAN
 
@@ -43,5 +46,8 @@ Si un jugador se desconecta, la máquina sigue jugando por él.
 - `src/js/ui/` tablero SVG, interfaz de partida, sonidos, reglas
 - `server/` relé WebSocket y descubrimiento UDP
 - `src/js/engine/ck.js` reglas de Ciudades y Caballeros; `src/js/ui/ck-ui.js` su interfaz
-- `tools/simulate.js` simula partidas entre bots: `npm run sim -- cities 20` (modos: classic, extended, seafarers, cities, cities56)
+- `src/js/engine/pe.js` reglas de Piratas y Exploradores; `src/js/ui/pe-ui.js` su interfaz
+- `tools/simulate.js` simula partidas entre bots: `npm run sim -- cities 20` (modos: classic, extended, seafarers, cities, cities56, explorers, explorers56).
+  Para Piratas y Exploradores el escenario va al final: `npm run sim -- explorers 20 4 5`
 - `tools/test-ck.js` pruebas de reglas de Ciudades y Caballeros: `node tools/test-ck.js`
+- `tools/test-pe.js` pruebas de reglas de Piratas y Exploradores: `node tools/test-pe.js`

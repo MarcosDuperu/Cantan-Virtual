@@ -11,8 +11,13 @@
   const BASE = {
     forest: ['#4f9a45', '#2d6a2b'], hills: ['#d8814f', '#a9502a'], pasture: ['#a6d66a', '#77ae43'],
     fields: ['#f3d562', '#d9ab2f'], mountains: ['#a3a9b1', '#6f767f'], desert: ['#f0dfa8', '#d4bd7c'],
-    gold: ['#f7d65a', '#c99317'], sea: ['#3a8fd0', '#2a6fae']
+    gold: ['#f7d65a', '#c99317'], sea: ['#3a8fd0', '#2a6fae'],
+    fish: ['#4aa0d8', '#2a72b0'], spice: ['#e0a860', '#a8692a'], council: ['#efe6cc', '#c9b68a'], hidden: ['#6b7884', '#3c4650'],
+    lake: ['#5fb4e6', '#2f7fbf'], swamp: ['#7f9a5a', '#4f6a36'], oasis: ['#f0dfa8', '#c9b06a'],
+    castle: ['#d8d2c4', '#a39a88'], quarry: ['#d9d4cc', '#9c958a'], glassworks: ['#e6d3b0', '#b8946a']
   };
+  const isWaterT = t => t === 'sea' || t === 'fish';
+  const isTileT = t => C.isLand(t) || t === 'spice' || t === 'council';
 
   const SPOTS = [[-0.5, -0.48], [0.02, -0.66], [0.52, -0.44], [-0.66, 0.06], [0.66, 0.08], [-0.38, 0.56], [0.36, 0.6]];
 
@@ -80,6 +85,58 @@
       case 'gold':
         out += `<path d="M${cx - 0.9 * S},${cy - 0.2 * S} C${cx - 0.3 * S},${cy - 0.6 * S} ${cx + 0.2 * S},${cy + 0.5 * S} ${cx + 0.9 * S},${cy + 0.1 * S}" stroke="#4aa3e0" stroke-width="7" fill="none" opacity=".85"/>`;
         spots.forEach(([x, y]) => { out += `<circle cx="${x}" cy="${y}" r="${2.5 + r() * 2}" fill="#fff3a8" stroke="#b9860f" stroke-width=".8"/>`; });
+        break;
+      case 'fish':
+        [[-0.45, -0.3], [0.4, -0.35], [-0.1, 0.45]].forEach(([dx, dy], i) => {
+          const x = cx + dx * S, y = cy + dy * S, f = i % 2 ? -1 : 1;
+          out += `<g transform="translate(${x},${y}) scale(${f},1)" opacity=".75"><path d="M-7,0 Q-1,-5 5,0 Q-1,5 -7,0Z" fill="#9fd6f5"/><path d="M5,0 L9,-3 L9,3Z" fill="#9fd6f5"/></g>`;
+        });
+        out += `<circle cx="${cx}" cy="${cy}" r="${0.62 * S}" fill="none" stroke="#bfe6ff" stroke-width="1.5" stroke-dasharray="4 5" opacity=".7"/>`;
+        break;
+      case 'spice':
+        [[-0.42, -0.35], [0.4, -0.3], [-0.05, 0.5]].forEach(([dx, dy]) => {
+          const x = cx + dx * S, y = cy + dy * S;
+          out += `<g transform="translate(${x},${y})"><rect x="-6" y="-3" width="12" height="8" fill="#e9d2a0" stroke="#5a3a17" stroke-width=".8"/>
+            <path d="M-8,-3 L0,-10 L8,-3Z" fill="#a8432a" stroke="#5a3a17" stroke-width=".8"/></g>`;
+        });
+        out += `<path d="M${cx - 0.7 * S},${cy + 0.12 * S} q${0.2 * S},-${0.3 * S} ${0.4 * S},0" stroke="#2d6a2b" stroke-width="3" fill="none"/>`;
+        break;
+      case 'council':
+        out += `<g transform="translate(${cx},${cy - 0.22 * S}) scale(1.3)">${C.UIIcons.icon('council', 40).replace(/^<svg[^>]*>/, '<g transform="translate(-20,-20)">').replace(/<\/svg>$/, '</g>')}</g>`;
+        break;
+      case 'lake':
+        out += `<ellipse cx="${cx}" cy="${cy}" rx="${0.62 * S}" ry="${0.45 * S}" fill="#7fc8f0" opacity=".6"/>`;
+        [[-0.3, -0.1], [0.25, 0.15]].forEach(([dx, dy], i) => { out += `<g transform="translate(${cx + dx * S},${cy + dy * S}) scale(${i ? -1 : 1},1)"><path d="M-7,0 Q-1,-5 5,0 Q-1,5 -7,0Z" fill="#e8f6ff"/><path d="M5,0 L9,-3 L9,3Z" fill="#e8f6ff"/></g>`; });
+        break;
+      case 'swamp':
+        for (let i = 0; i < 6; i++) { const x = cx + (r() - 0.5) * 1.1 * S, y = cy + (r() - 0.5) * 0.9 * S; out += `<path d="M${x},${y + 6} l-2,-10 M${x + 3},${y + 6} l1,-12 M${x + 6},${y + 6} l3,-9" stroke="#2f4a1f" stroke-width="1.4"/>`; }
+        out += `<ellipse cx="${cx}" cy="${cy + 0.25 * S}" rx="${0.4 * S}" ry="${0.13 * S}" fill="#4f8fbf" opacity=".6"/>`;
+        break;
+      case 'oasis':
+        out += `<ellipse cx="${cx}" cy="${cy + 0.1 * S}" rx="${0.3 * S}" ry="${0.16 * S}" fill="#4aa3e0"/>`;
+        [[-0.32, -0.15], [0.3, -0.2], [0.05, -0.4]].forEach(([dx, dy]) => {
+          const x = cx + dx * S, y = cy + dy * S;
+          out += `<path d="M${x},${y + 14} Q${x + 2},${y} ${x},${y - 6}" stroke="#7a4a24" stroke-width="2.4" fill="none"/>
+            <path d="M${x},${y - 6} q-9,-3 -12,4 M${x},${y - 6} q9,-3 12,4 M${x},${y - 6} q-4,-8 -10,-8 M${x},${y - 6} q4,-8 10,-8" stroke="#2d6a2b" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+        });
+        break;
+      case 'castle':
+        out += `<g transform="translate(${cx},${cy})"><path d="M-18,14 V-6 H-12 V-12 H-6 V-6 H6 V-12 H12 V-6 H18 V14Z" fill="#b8b0a0" stroke="#4a4235" stroke-width="1.6"/>
+          <path d="M-5,14 V3 Q0,-3 5,3 V14Z" fill="#4a3a22"/><path d="M-2,-12 V-24" stroke="#4a3a22" stroke-width="1.5"/><path d="M-2,-24 L8,-21 L-2,-18Z" fill="#c0281c"/></g>`;
+        break;
+      case 'quarry':
+        out += `<g transform="translate(${cx},${cy})"><path d="M-22,10 L-12,-10 L0,-4 L10,-14 L22,10Z" fill="#c7c1b6" stroke="#6a645a" stroke-width="1.4"/>
+          <rect x="-8" y="2" width="9" height="7" fill="#f2efe8" stroke="#6a645a"/><rect x="3" y="4" width="8" height="5" fill="#ebe6dc" stroke="#6a645a"/></g>`;
+        break;
+      case 'glassworks':
+        out += `<g transform="translate(${cx},${cy})"><rect x="-16" y="-6" width="24" height="18" fill="#c98b3b" stroke="#5a3a17" stroke-width="1.4"/>
+          <rect x="10" y="-20" width="6" height="32" fill="#8a5c2a" stroke="#5a3a17"/><path d="M-12,-2 h7 v7 h-7Z M-2,-2 h7 v7 h-7Z" fill="#9fd6f5" stroke="#1d5a80" stroke-width=".8"/>
+          <circle cx="13" cy="-24" r="3" fill="#bbb" opacity=".7"/></g>`;
+        break;
+      case 'hidden':
+        out += `<circle cx="${cx - 0.3 * S}" cy="${cy - 0.2 * S}" r="${0.32 * S}" fill="#8e9aa5" opacity=".35"/><circle cx="${cx + 0.25 * S}" cy="${cy + 0.1 * S}" r="${0.36 * S}" fill="#8e9aa5" opacity=".3"/>
+          <text x="${cx}" y="${cy + 11}" text-anchor="middle" font-size="30" font-weight="900" font-family="Georgia,serif" fill="#d9e1e8" opacity=".75">?</text>
+          ${h.area === 0 ? `<path d="M${cx + 14},${cy - 26} a7,7 0 1,0 6,10 a5.5,5.5 0 1,1 -6,-10Z" fill="#8fd18f" opacity=".85"/>` : h.area === 1 ? `<circle cx="${cx + 17}" cy="${cy - 20}" r="5" fill="#f2a24a" opacity=".9"/>` : ''}`;
         break;
       case 'sea':
         for (let i = 0; i < 3; i++) {
@@ -181,9 +238,9 @@
       <path d="M-7,11 Q-8,-2 0,-3 Q8,-2 7,11Z" fill="#e9b92d" stroke="#6b420a" stroke-width="1.3"/>
       <circle cx="0" cy="-8" r="5.5" fill="#e9b92d" stroke="#6b420a" stroke-width="1.3"/><path d="M-6,-10 L6,-10 L0,-17Z" fill="#8a1f2f"/></g>`;
   }
-  function roadSVG(b, e, color, cls = '') {
+  function roadSVG(b, e, color, cls = '', damaged) {
     const E = b.edges[e];
-    return `<g class="piece ${cls}" transform="translate(${E.x * S},${E.y * S}) rotate(${E.angle})">
+    return `<g class="piece ${cls}" transform="translate(${E.x * S},${E.y * S}) rotate(${E.angle + (damaged ? 90 : 0)})${damaged ? ' scale(.6,1)' : ''}">
       <rect x="${-0.36 * S}" y="-4" width="${0.72 * S}" height="8" rx="2.5" fill="rgba(0,0,0,.35)" transform="translate(1,1.5)"/>
       <rect x="${-0.36 * S}" y="-4" width="${0.72 * S}" height="8" rx="2.5" fill="${C.colorHex(color)}" stroke="#1b1b1b" stroke-width="1.6"/></g>`;
   }
@@ -208,6 +265,164 @@
     return `<g class="robber" transform="translate(${x},${y}) scale(1.4)"><path d="M-14,2 L14,2 L9,10 L-9,10 Z" fill="#1c1c1c" stroke="#000" stroke-width="1.2"/>
       <path d="M0,-15 L0,2" stroke="#000" stroke-width="1.6"/><path d="M-11,-12 L11,-12 L9,0 L-9,0 Z" fill="#2b2b2b" stroke="#000"/>
       <circle cx="0" cy="-6" r="3" fill="#f6f1e1"/><path d="M-3,-1 L3,-1" stroke="#f6f1e1" stroke-width="1.4"/></g>`;
+  }
+
+  // ---------- Piratas y Exploradores ----------
+  const itemSVG = (k, x, y, size) => `<g transform="translate(${x - size / 2},${y - size / 2}) scale(${size / 40})">${iconInner(k)}</g>`;
+  function harborSVG(v, color, cls = '') {
+    const x = v.x * S, y = v.y * S;
+    return `<g class="piece ${cls}" transform="translate(${x},${y}) scale(1.3)">
+      <path d="M-13,9 L-13,-2 L-4,-10 L5,-2 L5,1 L13,1 L13,9Z" transform="translate(1.5,2)" fill="rgba(0,0,0,.35)"/>
+      <path d="M-13,9 L-13,-2 L-4,-10 L5,-2 L5,1 L13,1 L13,9Z" fill="${C.colorHex(color)}" stroke="#1b1b1b" stroke-width="1.6" stroke-linejoin="round"/>
+      <g stroke="#1b1b1b" stroke-width="1.3" fill="none"><path d="M9,1.5 V7.5"/><path d="M6.5,5.5 Q9,8.5 11.5,5.5"/><circle cx="9" cy="2.6" r="1"/></g>
+      <rect x="-8" y="0" width="3" height="4" fill="#1b1b1b" opacity=".5"/></g>`;
+  }
+  function peShipSVG(b, e, color, sh, offset, sel) {
+    const E = b.edges[e];
+    let ang = E.angle;
+    if (ang > 90) ang -= 180;
+    if (ang < -90) ang += 180;
+    const rad = (ang + 90) * Math.PI / 180;
+    const x = E.x * S + Math.cos(rad) * offset, y = E.y * S + Math.sin(rad) * offset;
+    const col = C.colorHex(color);
+    const cargo = sh.cargo.map((k, i) => itemSVG(k, (i - (sh.cargo.length - 1) / 2) * 11, -3, 12)).join('');
+    return `<g class="piece peship ${sel ? 'sel' : ''}" transform="translate(${x},${y}) rotate(${ang})">
+      <path d="M-15,3 L15,3 L10,11 L-10,11 Z" transform="translate(1.2,1.5)" fill="rgba(0,0,0,.35)"/>
+      <path d="M-15,3 L15,3 L10,11 L-10,11 Z" fill="${col}" stroke="#1b1b1b" stroke-width="1.6"/>
+      <path d="M0,-14 L0,3" stroke="#1b1b1b" stroke-width="1.6"/><path d="M1,-13 L12,1 L1,1 Z" fill="#f6f1e1" stroke="#1b1b1b" stroke-width="1"/>
+      <path d="M-1,-12 L-10,1 L-1,1 Z" fill="${col}" stroke="#1b1b1b" stroke-width="1"/>
+      ${cargo ? `<g transform="rotate(${-ang}) translate(0,-14)"><rect x="${-sh.cargo.length * 6.5}" y="-9" width="${sh.cargo.length * 13}" height="13" rx="4" fill="#fdfaf2" stroke="#1b1b1b" stroke-width=".8"/>${cargo}</g>` : ''}</g>`;
+  }
+  function pePirateSVG(h, color) {
+    const x = h.x * S, y = h.y * S;
+    return `<g class="robber" transform="translate(${x},${y}) scale(1.35)"><path d="M-14,2 L14,2 L9,10 L-9,10 Z" fill="#1c1c1c" stroke="#000" stroke-width="1.2"/>
+      <path d="M0,-17 L0,2" stroke="#000" stroke-width="1.6"/><path d="M-11,-13 L11,-13 L9,0 L-9,0 Z" fill="#2b2b2b" stroke="#000"/>
+      <circle cx="0" cy="-7" r="3" fill="#f6f1e1"/><path d="M-3,-2 L3,-2" stroke="#f6f1e1" stroke-width="1.4"/>
+      <path d="M0,-17 L9,-15 L0,-13Z" fill="${C.colorHex(color)}" stroke="#000" stroke-width=".6"/></g>`;
+  }
+  function pePieces(view, b, hl) {
+    let out = '';
+    b.hexes.forEach(h => {
+      const cx = h.x * S, cy = h.y * S;
+      if (h.lair) {
+        out += `<g class="lair" transform="translate(${cx + 0.42 * S},${cy - 0.42 * S})"><circle r="13" fill="#1b1b1b" stroke="#f2c230" stroke-width="2"/>${itemSVG('pirate', 0, 0, 20)}</g>`;
+        h.lair.crews.forEach((o, i) => { out += `<circle cx="${cx - 0.35 * S + i * 12}" cy="${cy + 0.5 * S}" r="5.5" fill="${C.colorHex(view.players[o].color)}" stroke="#1b1b1b" stroke-width="1.4"/>`; });
+      }
+      (h.leftCrews || []).forEach((o, i) => { out += `<g transform="translate(${cx - 0.3 * S + i * 13},${cy + 0.55 * S})"><circle r="6" fill="${C.colorHex(view.players[o].color)}" stroke="#1b1b1b" stroke-width="1.4"/></g>`; });
+      if (h.terrain === 'fish' && h.fishNo) {
+        out += `<g class="fishno" transform="translate(${cx},${cy + 0.5 * S})"><rect x="-10" y="-10" width="20" height="20" rx="4" fill="#fdfaf2" stroke="#1d5a80" stroke-width="1.6"/>
+          <text y="5" text-anchor="middle" font-size="14" font-weight="900" fill="#1d5a80">${h.fishNo}</text></g>`;
+        if (h.fish) out += `<g class="pe-token">${itemSVG('fish', cx, cy - 0.12 * S, 34)}</g>`;
+      }
+      if (h.terrain === 'spice' && h.spice) {
+        const BI = { fastTravel: '⛵', pirate4: '⚔4', pirate5: '⚔5', fastGold: '★' };
+        out += `<g transform="translate(${cx},${cy + 0.05 * S})"><circle r="15" fill="#fdfaf2" stroke="#6b2a10" stroke-width="1.6"/>${itemSVG('spice', 0, -1, 20)}
+          <text x="11" y="15" font-size="11" font-weight="900" fill="#6b2a10">${h.spice.left}</text></g>
+          <text x="${cx}" y="${cy - 0.45 * S}" text-anchor="middle" font-size="14">${BI[h.spice.benefit] || ''}</text>`;
+      }
+    });
+    // muelles de los poblados portuarios
+    Object.entries(view.pe.docks || {}).forEach(([v, items]) => {
+      if (!items.length) return;
+      const vx = b.vertices[v];
+      out += `<g transform="translate(${vx.x * S},${vx.y * S + 19})"><rect x="${-items.length * 7.5}" y="-8" width="${items.length * 15}" height="16" rx="4" fill="#8b5e34" stroke="#3a2510"/>
+        ${items.map((k, i) => itemSVG(k, (i - (items.length - 1) / 2) * 14, 0, 14)).join('')}</g>`;
+    });
+    const byEdge = {};
+    Object.values(view.pe.ships).forEach(x => { (byEdge[x.edge] || (byEdge[x.edge] = [])).push(x); });
+    Object.entries(byEdge).forEach(([e, list]) => list.forEach((x, i) => {
+      out += peShipSVG(b, +e, view.players[x.owner].color, x, list.length > 1 ? (i ? 9 : -9) : 0, hl.selShip === x.id);
+    }));
+    if (view.pe.pirate) out += pePirateSVG(b.hexes[view.pe.pirate.hex], view.players[view.pe.pirate.owner].color);
+    return out;
+  }
+
+  // ---------- Mercaderes y Bárbaros ----------
+  function bridgeSVG(b, e, color, cls = '') {
+    const E = b.edges[e];
+    const col = C.colorHex(color);
+    return `<g class="piece ${cls}" transform="translate(${E.x * S},${E.y * S}) rotate(${E.angle})">
+      <rect x="${-0.4 * S}" y="-7" width="${0.8 * S}" height="14" rx="3" fill="#8b5e34" stroke="#1b1b1b" stroke-width="1.4"/>
+      ${[-12, -4, 4, 12].map(x => `<line x1="${x}" y1="-7" x2="${x}" y2="7" stroke="#5a3a17" stroke-width="1.2"/>`).join('')}
+      <rect x="${-0.4 * S}" y="-7" width="${0.8 * S}" height="3.5" fill="${col}" stroke="#1b1b1b" stroke-width=".8"/>
+      <rect x="${-0.4 * S}" y="3.5" width="${0.8 * S}" height="3.5" fill="${col}" stroke="#1b1b1b" stroke-width=".8"/></g>`;
+  }
+  function tbPieces(view, b, hl) {
+    const T = view.tb;
+    let out = '';
+    const col = o => view.players[o] ? C.colorHex(view.players[o].color) : '#999';
+    // ríos (líneas por el centro de sus hexágonos)
+    const rivers = {};
+    b.hexes.forEach(h => { if (h.river !== undefined) (rivers[h.river] = rivers[h.river] || [])[h.riverIdx] = h; });
+    Object.values(rivers).forEach(list => {
+      const pts = list.filter(Boolean);
+      const first = pts[0];
+      const sea = C.neighborsOf ? null : null;
+      let d = '';
+      pts.forEach((h, i) => { d += (i ? ' L' : 'M') + (h.x * S).toFixed(1) + ',' + (h.y * S).toFixed(1); });
+      const mouth = b.hexes.filter(x => x.terrain === 'sea').sort((a, c) => Math.hypot(a.x - first.x, a.y - first.y) - Math.hypot(c.x - first.x, c.y - first.y))[0];
+      if (mouth) d = 'M' + ((first.x + mouth.x) / 2 * S).toFixed(1) + ',' + ((first.y + mouth.y) / 2 * S).toFixed(1) + ' L' + d.slice(1);
+      out += `<path d="${d}" stroke="#2f7fbf" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>
+        <path d="${d}" stroke="#7fc8f0" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>`;
+    });
+    (b.bridgeSites || []).forEach(e => {
+      if (view.roads[e]) return;
+      const E = b.edges[e];
+      out += `<g transform="translate(${E.x * S},${E.y * S}) rotate(${E.angle})"><rect x="${-0.36 * S}" y="-5" width="${0.72 * S}" height="10" rx="2" fill="none" stroke="#5a3a17" stroke-width="1.6" stroke-dasharray="4 3"/></g>`;
+    });
+    // caladeros
+    (b.fishing || []).forEach(f => {
+      const vs = f.vertices.map(v => b.vertices[v]);
+      const h = b.hexes[f.hex];
+      const x = (h.x * 0.55 + vs.reduce((a, v) => a + v.x, 0) / vs.length * 0.45) * S, y = (h.y * 0.55 + vs.reduce((a, v) => a + v.y, 0) / vs.length * 0.45) * S;
+      vs.forEach(v => { out += `<line x1="${v.x * S}" y1="${v.y * S}" x2="${x}" y2="${y}" stroke="#1d5a80" stroke-width="2.4" stroke-dasharray="3 3" opacity=".8"/>`; });
+      out += `<g class="fishing" transform="translate(${x},${y})"><circle r="15" fill="#e8f6ff" stroke="#1d5a80" stroke-width="2"/>
+        <path d="M-9,-4 Q-4,-9 2,-4 Q-4,1 -9,-4Z M2,-4 L6,-7 L6,-1Z" fill="#3a8fd0"/>
+        <text y="11" text-anchor="middle" font-size="11" font-weight="900" fill="#1d5a80">${f.number}</text></g>`;
+    });
+    // flechas del oasis
+    (b.oases || []).forEach(o => o.arrows.forEach(v => {
+      const V = b.vertices[v], h = b.hexes[o.hex];
+      const x = (V.x * 0.7 + h.x * 0.3) * S, y = (V.y * 0.7 + h.y * 0.3) * S;
+      const ang = Math.atan2(V.y - h.y, V.x - h.x) * 180 / Math.PI;
+      out += `<path transform="translate(${x},${y}) rotate(${ang})" d="M-5,-5 L5,0 L-5,5Z" fill="#c0281c" stroke="#5a1a10" stroke-width=".8"/>`;
+    }));
+    // camellos
+    Object.keys(T.camels || {}).forEach(e => {
+      const E = b.edges[e];
+      out += `<g class="camel" transform="translate(${E.x * S},${E.y * S}) rotate(${E.angle}) translate(0,-6)">
+        <path d="M-10,4 Q-9,-4 -4,-3 Q-2,-8 2,-3 Q6,-6 7,-2 L9,-5 L11,-4 L9,1 L8,4 M-7,4 V9 M-2,4 V9 M3,4 V9 M7,4 V9" fill="#c9954a" stroke="#6b4a1f" stroke-width="1.4" stroke-linejoin="round"/></g>`;
+    });
+    // ataque bárbaro: hexágonos costeros con bárbaros y caballeros en caminos
+    b.hexes.forEach(h => {
+      if (h.conquered) out += `<polygon points="${hexPoints(h, 0.9)}" fill="rgba(60,20,10,.45)" stroke="#5a1a10" stroke-width="3"/>`;
+      if (h.barbs) {
+        for (let i = 0; i < h.barbs; i++) out += `<g transform="translate(${h.x * S + (i - (h.barbs - 1) / 2) * 15},${h.y * S - 0.5 * S})"><circle r="7" fill="#3b2a1a" stroke="#000" stroke-width="1.2"/>
+          <path d="M-5,-4 L-8,-10 M5,-4 L8,-10" stroke="#e9dfc4" stroke-width="2"/></g>`;
+      }
+    });
+    Object.entries(T.knights || {}).forEach(([e, k]) => {
+      const E = b.edges[e];
+      out += `<g class="piece tbknight" transform="translate(${E.x * S},${E.y * S})"><path d="M0,-11 L9,-7 V0 C9,6 4,10 0,12 C-4,10 -9,6 -9,0 V-7Z" fill="${col(k.owner)}" stroke="#1b1b1b" stroke-width="1.6"/>
+        <path d="M0,-6 V7 M-5,-1 H5" stroke="#f1d36b" stroke-width="2"/></g>`;
+    });
+    // bárbaros en caminos (escenario 5)
+    (Array.isArray(T.barbs) ? T.barbs : []).forEach(e => {
+      const E = b.edges[e];
+      out += `<g transform="translate(${E.x * S},${E.y * S})"><circle r="9" fill="#3b2a1a" stroke="#000" stroke-width="1.4"/><path d="M-6,-5 L-10,-12 M6,-5 L10,-12" stroke="#e9dfc4" stroke-width="2.2"/>
+        <circle cx="-3" cy="-1" r="1.5" fill="#f2c230"/><circle cx="3" cy="-1" r="1.5" fill="#f2c230"/></g>`;
+    });
+    // carretas
+    const wag = {};
+    view.players.forEach(p => { if (p.wagon && p.wagon.v !== null && p.wagon.v !== undefined) (wag[p.wagon.v] = wag[p.wagon.v] || []).push(p); });
+    Object.entries(wag).forEach(([v, ps]) => ps.forEach((p, i) => {
+      const V = b.vertices[v];
+      const x = V.x * S + (i - (ps.length - 1) / 2) * 16, y = V.y * S + 14;
+      out += `<g class="piece wagon" transform="translate(${x},${y})"><rect x="-10" y="-8" width="20" height="10" rx="2" fill="${col(p.id)}" stroke="#1b1b1b" stroke-width="1.4"/>
+        <path d="M-9,-8 Q0,-17 9,-8" fill="#f6f1e1" stroke="#1b1b1b" stroke-width="1"/><circle cx="-6" cy="4" r="3.5" fill="#5a3a17" stroke="#1b1b1b"/><circle cx="6" cy="4" r="3.5" fill="#5a3a17" stroke="#1b1b1b"/>
+        ${p.cargo ? `<text y="-9" text-anchor="middle" font-size="9" font-weight="900">${{ glass: '🔷', marble: '⬜', sand: '🟨', tools: '🔨' }[p.cargo] || ''}</text>` : ''}</g>`;
+    }));
+    return out;
   }
 
   class BoardView {
@@ -241,16 +456,20 @@
       const pad = 0.95;
       this.svg.setAttribute('viewBox', `${(minX - pad) * S} ${(minY - pad * 1.1) * S} ${(maxX - minX + 2 * pad) * S} ${(maxY - minY + 2.2 * pad) * S}`);
       let out = '';
-      // marco de mar
-      b.hexes.filter(h => h.terrain === 'sea').forEach(h => {
-        out += `<polygon points="${hexPoints(h, 1.02)}" fill="url(#${this.uid}-sea)"/>${decor(h)}`;
+      // marco de mar (y bancos de pesca)
+      b.hexes.filter(h => isWaterT(h.terrain)).forEach(h => {
+        out += `<polygon points="${hexPoints(h, 1.02)}" fill="url(#${this.uid}-${h.terrain})"/>${decor(h)}`;
       });
       // sombra de la isla
-      b.hexes.filter(h => C.isLand(h.terrain)).forEach(h => {
+      b.hexes.filter(h => isTileT(h.terrain)).forEach(h => {
         out += `<polygon points="${hexPoints(h, 1.08)}" fill="#e8d9a6" stroke="#e8d9a6" stroke-width="4"/>`;
       });
-      b.hexes.filter(h => C.isLand(h.terrain)).forEach(h => {
+      b.hexes.filter(h => isTileT(h.terrain)).forEach(h => {
         out += `<g class="hex"><polygon points="${hexPoints(h, 0.97)}" fill="url(#${this.uid}-${h.terrain})" stroke="#f1e6c2" stroke-width="2.5"/>${decor(h)}</g>`;
+      });
+      // zona inexplorada (Piratas y Exploradores)
+      b.hexes.filter(h => h.terrain === 'hidden').forEach(h => {
+        out += `<g class="hex fog"><polygon points="${hexPoints(h, 1.0)}" fill="url(#${this.uid}-hidden)" stroke="#2c343c" stroke-width="1.5"/>${decor(h)}</g>`;
       });
       (b.ports || []).forEach(p => { out += portSVG(b, p); });
       this.gStatic.innerHTML = out;
@@ -258,7 +477,7 @@
 
     render(view, hl) {
       const b = view.board;
-      const key = b.hexes.length + ':' + b.hexes.map(h => h.terrain[0] + (h.number || '')).join('');
+      const key = b.hexes.length + ':' + b.hexes.map(h => h.terrain + (h.number || '')).join(',');
       if (key !== this.boardKey) { this.boardKey = key; this.renderStatic(b); this.prevPieces = new Set(); }
       let out = '';
       b.hexes.forEach(h => { if (h.number) out += token(h); });
@@ -267,15 +486,18 @@
         const k = 'e' + e + r.type;
         seen.add(k);
         const cls = this.prevPieces.size && !this.prevPieces.has(k) ? 'new' : '';
-        out += r.type === 'ship' ? shipSVG(b, +e, view.players[r.owner].color, cls) : roadSVG(b, +e, view.players[r.owner].color, cls);
+        out += r.type === 'ship' ? shipSVG(b, +e, view.players[r.owner].color, cls) : r.bridge ? bridgeSVG(b, +e, view.players[r.owner].color, cls)
+          : roadSVG(b, +e, view.players[r.owner].color, cls + (r.damaged ? ' damaged' : ''), r.damaged);
       });
+      const colorOf = o => o < 0 || !view.players[o] ? 'neutral' : view.players[o].color;
       Object.entries(view.buildings).forEach(([v, bd]) => {
         const k = 'v' + v + bd.type;
         seen.add(k);
         const cls = this.prevPieces.size && !this.prevPieces.has(k) ? 'new' : '';
         if (bd.wall) out += wallSVG(b.vertices[v]);
-        if (bd.metro) out += metroSVG(b.vertices[v], view.players[bd.owner].color, bd.metro, cls);
-        else out += bd.type === 'city' ? citySVG(b.vertices[v], view.players[bd.owner].color, cls) : settlementSVG(b.vertices[v], view.players[bd.owner].color, cls);
+        if (bd.metro) out += metroSVG(b.vertices[v], colorOf(bd.owner), bd.metro, cls);
+        else if (bd.type === 'harbor') out += harborSVG(b.vertices[v], colorOf(bd.owner), cls);
+        else out += bd.type === 'city' ? citySVG(b.vertices[v], colorOf(bd.owner), cls) : settlementSVG(b.vertices[v], colorOf(bd.owner), cls);
       });
       Object.entries(view.knights || {}).forEach(([v, k]) => {
         const key = 'k' + v + k.owner + k.level;
@@ -285,8 +507,10 @@
       });
       if (view.ck && view.ck.merchant) out += merchantSVG(b.hexes[view.ck.merchant.hex]);
       this.prevPieces = seen.size ? seen : new Set(['_']);
-      out += robberSVG(b.hexes[view.robber]);
+      if (view.robber !== null && view.robber !== undefined) out += robberSVG(b.hexes[view.robber]);
       if (view.pirate !== null && view.pirate !== undefined) out += pirateSVG(b.hexes[view.pirate]);
+      if (view.pe) out += pePieces(view, b, hl || {});
+      if (view.tb) out += tbPieces(view, b, hl || {});
       this.gPieces.innerHTML = out;
       this.renderHL(b, hl || {});
     }
