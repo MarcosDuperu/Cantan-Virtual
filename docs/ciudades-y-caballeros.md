@@ -57,13 +57,16 @@ queda como opción). En 5-6 hay 18 mercancías de cada tipo. El Herrero respeta 
 turno, y el Diplomático no considera abierta una carretera que termina en un caballero de su dueño.
 Pruebas: `node tools/test-ck.js` y `node tools/simulate.js cities` / `cities56`.
 
-Decisiones que el reglamento deja al jugador y el juego toma solo:
-1. **Desertor**: el rival debería elegir qué caballero retira; el juego retira automáticamente el más débil.
-   Si no tienes un caballero de ese nivel, el reglamento permite poner uno básico; el juego no lo hace.
-2. **Intriga** y **desalojo**: el dueño debería elegir a dónde mueve su caballero; el juego elige el primer cruce libre.
-3. **Puerto comercial**: tú eliges qué recurso das a cada rival y cada rival elige qué mercancía entrega;
-   el juego lo hace automático (das el recurso más abundante, recibes su mercancía más abundante).
-4. **Empate de defensores**: cada empatado debería elegir el mazo de progreso; el juego elige el de su mejora más alta.
-5. **Quinta carta de progreso**: el reglamento solo dice "nunca más de 4". El juego obliga a descartar fuera de
-   tu turno y te deja jugarla en tu turno antes de terminarlo (interpretación de ediciones anteriores).
-6. **Ciudad saqueada**: el juego elige automáticamente la de menor producción.
+Decisiones del reglamento que toma cada jugador (antes las tomaba el juego):
+- **Desertor**: el rival elige qué caballero retira; quien juega la carta coloca uno de la misma fuerza o, si no le
+  quedan de esa fuerza, el más fuerte que tenga.
+- **Intriga** y **desalojo**: el dueño del caballero elige a qué cruce unido a sus carreteras lo mueve, o lo retira a su reserva.
+- **Puerto comercial**: eliges qué recurso ofreces a cada rival (o no le ofreces nada) y cada rival elige qué mercancía te da.
+- **Empate de defensores**: cada empatado elige de qué mazo roba.
+- **Ciudad saqueada**: quien la pierde elige cuál, y la producción espera a que decida.
+
+Si solo hay una opción, el juego la aplica sin preguntar. Los bots eligen solos (el caballero más débil, su ciudad de menor
+producción, el mazo de su mejora más alta…).
+
+Interpretación propia: **quinta carta de progreso**. El reglamento solo dice "nunca más de 4"; el juego obliga a
+descartar fuera de tu turno y te deja jugarla en tu turno antes de terminarlo (interpretación de ediciones anteriores).

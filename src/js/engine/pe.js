@@ -20,7 +20,8 @@
   const MISSIONS = ['lairs', 'fish', 'spice'];
   const MISSION_NAME = { lairs: 'Guaridas piratas', fish: 'Pescado', spice: 'Especias' };
   // PV de cada casilla de la pista de misión (decisión propia: el reglamento solo los muestra en la carta)
-  const TRACK_VP = [0, 1, 1, 2, 2, 3, 3, 4];
+  // PV de cada casilla de la pista de misión (ejemplo 9 del reglamento: casillas 1-7 → 1, 1, 2, 2, 2, 3, 3)
+  const TRACK_VP = [0, 1, 1, 2, 2, 2, 3, 3];
   const TRACK_MAX = TRACK_VP.length - 1;
 
   const COST = {
@@ -90,6 +91,39 @@
     s.setup.index = 0;
     s.setup.step = q[0].step;
     s.current = q[0].pid;
+    if (s.board.fixedStarts) fixedSetup(s);
+  }
+
+  // Escenario 1 «¡Tierra a la vista!»: las posiciones iniciales están dadas (ejemplo 2 del reglamento).
+  // Con 3 jugadores no se usa la cuarta posición; con 2, las piezas de los otros dos colores quedan como
+  // obstáculos neutrales (sin sus barcos).
+  function fixedSetup(s) {
+    const n = s.players.length;
+    const order = s.setup.order.slice(0, n);
+    s.board.fixedStarts.forEach((f, i) => {
+      const pid = i < n ? order[i] : (n === 2 ? NEUTRAL : null);
+      if (pid === null) return;
+      const own = pid === NEUTRAL ? NEUTRAL : pid;
+      s.buildings[f.settle] = { owner: own, type: 'settlement' };
+      s.roads[f.road] = { owner: own, type: 'road', turn: -1 };
+      s.buildings[f.harbor] = { owner: own, type: 'harbor' };
+      if (pid === NEUTRAL) return;
+      const P = s.players[pid];
+      P.pieces.settlement--; P.pieces.road--; P.pieces.harbor--;
+      s.pe.docks[f.harbor] = [];
+      newShip(s, pid, f.ship, ['settler']);
+      P.pieces.ship--; P.pieces.settler--;
+      const got = C.emptyRes();
+      s.board.vertices[f.settle].hexes.forEach(h => {
+        const res = TERRAIN_RES[s.board.hexes[h].terrain];
+        if (res && s.bank[res] > 0) { got[res]++; s.bank[res]--; P.resources[res]++; }
+      });
+      R().log(s, name(s, pid) + ' empieza en su posición fija y recibe ' + C.resText(got) + '.', pid);
+    });
+    s.phase = 'roll';
+    s.current = s.first;
+    s.turn = 1;
+    onTurnStart(s);
   }
 
   // ---------- geometría ----------
@@ -97,7 +131,7 @@
   const touchesHidden = (s, v) => s.board.vertices[v].hexes.some(h => s.board.hexes[h].hidden);
   const edgeTouchesHidden = (s, e) => s.board.edges[e].v.some(v => touchesHidden(s, v));
   // Ruta marítima: arista con al menos un hexágono de agua visible
-  const isRoute = (s, e) => s.board.edges[e].hexes.some(h => isWater(s.board.hexes[h]));
+  const isRoute = (s, e) => !s.board.edges[e].offBoard && s.board.edges[e].hexes.some(h => isWater(s.board.hexes[h]));
   // Un barco "apunta" a un hexágono si uno de los extremos de su arista es una esquina de ese hexágono
   const edgeTouchesHex = (s, e, hid) => s.board.edges[e].v.some(v => s.board.vertices[v].hexes.includes(hid));
   const coastal = (s, v) => s.board.vertices[v].hexes.some(h => isWater(s.board.hexes[h]));
@@ -137,7 +171,9 @@
   function setupSpots(s, pid) {
     const st = s.setup;
     if (st.step === 'harbor' || st.step === 'nharbor') {
-      return { vertices: s.board.vertices.filter(v => onStart(s, v.id) && settleOk(s, v.id) && coastal(s, v.id) &&
+      // en el tablero oficial 3-4, solo en los cruces marcados con un círculo (la costa este de la isla inicial)
+      const sites = s.board.harborSites;
+      return { vertices: s.board.vertices.filter(v => onStart(s, v.id) && settleOk(s, v.id) && coastal(s, v.id) && (!sites || sites.includes(v.id)) &&
         v.edges.some(e => isRoute(s, e) && !edgeTouchesHidden(s, e))).map(v => v.id) };
     }
     if (st.step === 'settlement' || st.step === 'nsettlement') return { vertices: s.board.vertices.filter(v => onStart(s, v.id) && settleOk(s, v.id)).map(v => v.id) };
@@ -502,9 +538,25 @@
       R().log(s, name(s, pid) + ' convierte un poblado en poblado portuario.', pid);
       R().event(s, { type: 'build', what: 'harbor', pid, at: a.vertex });
     } else if (t === 'buildShip') {
-      if (P.pieces.ship <= 0) return err('No te quedan barcos');
+      // con todos los barcos en el tablero, puedes retirar uno (su carga se pierde) para construirlo de nuevo
+      const old = P.pieces.ship <= 0 && a.remove !== undefined && a.remove !== null ? s.pe.ships[a.remove] : null;
+      if (P.pieces.ship <= 0 && !old) return err('No te quedan barcos: elige uno para retirarlo');
+      if (old && old.owner !== pid) return err('Elige uno de tus barcos');
       const e = payOr(COST.ship); if (e) return e;
-      if (!shipBuildEdges(s, pid).includes(a.edge)) return err('El barco debe ir en una ruta marítima junto a tu poblado portuario (máx. 2 por ruta)');
+      let edges = shipBuildEdges(s, pid);
+      if (old) {
+        // el lado del barco retirado queda libre
+        delete s.pe.ships[old.id];
+        edges = shipBuildEdges(s, pid);
+        s.pe.ships[old.id] = old;
+      }
+      if (!edges.includes(a.edge)) return err('El barco debe ir en una ruta marítima junto a tu poblado portuario (máx. 2 por ruta)');
+      if (old) {
+        delete s.pe.ships[old.id];
+        old.cargo.forEach(it => { if (it === 'settler' || it === 'crew') P.pieces[it]++; else if (it === 'fish') s.pe.fishSupply++; });
+        P.pieces.ship++;
+        R().log(s, name(s, pid) + ' retira un barco' + (old.cargo.length ? ' (pierde su carga)' : '') + '.', pid);
+      }
       R().pay(s, pid, COST.ship);
       newShip(s, pid, a.edge, []);
       P.pieces.ship--;
@@ -569,22 +621,33 @@
   function startMove(s, pid, a) {
     s.trade = null;
     s.phase = 'move';
-    if (scen(s).fish && !s.pe.fishRolled && s.pe.fishSupply > 0 && !s.pe.p2) {
-      s.pe.fishRolled = true;
-      const d = a.forcedFish || die();
-      s.pe.fishDie = d;
-      const h = s.board.hexes.find(x => x.terrain === 'fish' && !x.hidden && x.fishNo === d);
-      if (h && !h.fish && s.pe.fishSupply > 0 && !(s.pe.pirate && s.pe.pirate.hex === h.id)) {
-        s.pe.fishSupply--;
-        h.fish = 1;
-        R().log(s, 'Dado de pesca: ' + d + '. Aparece pescado en el banco ' + d + '.', pid);
-        R().event(s, { type: 'fish', d, hex: h.id, pid });
-      } else {
-        R().log(s, 'Dado de pesca: ' + d + '. No aparece pescado.', pid);
-        R().event(s, { type: 'fish', d, hex: null, pid });
-      }
+    return ok();
+  }
+
+  // dado de pesca: una vez por turno, durante la fase de movimiento, si quieres
+  const canRollFish = s => !!scen(s).fish && s.phase === 'move' && !s.pe.fishRolled && s.pe.fishSupply > 0 && !s.pe.p2;
+  function rollFish(s, pid, a) {
+    if (!canRollFish(s)) return err(scen(s).fish ? (s.pe.fishRolled ? 'Ya tiraste el dado de pesca este turno' : 'No quedan cargas de pescado') : 'En este escenario no hay pescado');
+    s.pe.fishRolled = true;
+    const d = a.forcedFish || die();
+    s.pe.fishDie = d;
+    const h = s.board.hexes.find(x => x.terrain === 'fish' && !x.hidden && x.fishNo === d);
+    if (h && !h.fish && !(s.pe.pirate && s.pe.pirate.hex === h.id)) {
+      s.pe.fishSupply--;
+      h.fish = 1;
+      R().log(s, 'Dado de pesca: ' + d + '. Aparece pescado en el banco ' + d + '.', pid);
+      R().event(s, { type: 'fish', d, hex: h.id, pid });
+    } else {
+      R().log(s, 'Dado de pesca: ' + d + '. No aparece pescado.', pid);
+      R().event(s, { type: 'fish', d, hex: null, pid });
     }
     return ok();
+  }
+
+  function resolveCaptures(s) {
+    const list = s.pe.captures || [];
+    s.pe.captures = [];
+    list.forEach(hex => { if (s.board.hexes[hex].lair) capture(s, hex); });
   }
 
   function shipAction(s, pid, a) {
@@ -661,7 +724,11 @@
         lair.crews.push(pid);
         R().log(s, name(s, pid) + ' desembarca una tripulación en una guarida pirata (' + lair.crews.length + '/3).', pid);
         R().event(s, { type: 'crew', pid, hex });
-        if (lair.crews.length >= 3) capture(s, hex, pid);
+        if (lair.crews.length >= 3) {
+          // capturada: el reparto (oro, misión y héroe) se resuelve al terminar la fase de movimiento
+          (s.pe.captures || (s.pe.captures = [])).push(hex);
+          R().log(s, '¡La guarida pirata cae! El botín se reparte al terminar la fase de movimiento.', pid);
+        }
         R().checkWin(s, pid);
         return ok();
       }
@@ -800,7 +867,13 @@
     }
     if (s.phase === 'move') {
       if (pid !== s.current) return err('No es tu turno');
-      if (t === 'endTurn') { endTurn(s); return ok(); }
+      if (t === 'endTurn') {
+        resolveCaptures(s);
+        R().checkWin(s, pid);
+        if (s.phase !== 'ended') endTurn(s);
+        return ok();
+      }
+      if (t === 'rollFish') return rollFish(s, pid, a);
       if (SHIP_ACTIONS.includes(t)) return shipAction(s, pid, a);
       return err('En la fase de movimiento ya no se comercia ni se construye');
     }
@@ -808,6 +881,7 @@
   }
 
   function onTurnStart(s) {
+    s.pe.captures = [];
     s.pe.fishRolled = false;
     s.pe.fishDie = null;
     s.pe.p2 = null;
@@ -832,7 +906,7 @@
 
   C.PE = {
     SCENARIOS, MISSIONS, MISSION_NAME, TRACK_VP, TRACK_MAX, COST, PIECES, SIZE, CAP, MAX_MP, ITEM_NAME, BENEFIT_NAME, BENEFIT_HELP, TERRAIN_NAME,
-    init, handle, onTurnStart, redact, extraVP, missionVP, missionActive,
+    init, handle, onTurnStart, canRollFish, redact, extraVP, missionVP, missionActive,
     isWater, isRoute, touchesHidden, edgeTouchesHidden, edgeTouchesHex, coastal, settleOk, settleSpots, harborSpots, shipBuildEdges,
     setupSpots, cargoTargets, reach, pathTo, shipsAt, space, ownHarbors, harborOf, councilHex, baseMP,
     adjacentLairs, adjacentFish, adjacentSpices, foundable, pickupHexes, spiceOk, countBen, NEUTRAL, canFight, pirateHexes, pirateVictims, tradeRate

@@ -151,7 +151,7 @@
   function hexPoints(h, scale = 1) {
     const pts = [];
     for (let i = 0; i < 6; i++) {
-      const a = Math.PI / 180 * (60 * i - 30);
+      const a = Math.PI / 180 * (60 * i - (h.flat ? 0 : 30));
       pts.push(((h.x + Math.cos(a) * scale) * S).toFixed(1) + ',' + ((h.y + Math.sin(a) * scale) * S).toFixed(1));
     }
     return pts.join(' ');
@@ -347,6 +347,52 @@
       <rect x="${-0.4 * S}" y="-7" width="${0.8 * S}" height="3.5" fill="${col}" stroke="#1b1b1b" stroke-width=".8"/>
       <rect x="${-0.4 * S}" y="3.5" width="${0.8 * S}" height="3.5" fill="${col}" stroke="#1b1b1b" stroke-width=".8"/></g>`;
   }
+  // Navegantes: elementos propios de cada escenario
+  function sfPieces(view, b) {
+    const S2 = view.sf;
+    let out = '';
+    const col = o => (view.players[o] ? C.colorHex(view.players[o].color) : '#777');
+    // barcos de guerra (Las islas piratas)
+    Object.entries(view.roads).forEach(([e, r]) => {
+      if (!r.war) return;
+      const E = b.edges[e];
+      out += `<g transform="translate(${E.x * S},${E.y * S - 15})"><circle r="7" fill="#1b1b1b" stroke="${col(r.owner)}" stroke-width="2"/><text y="3.5" text-anchor="middle" font-size="9" fill="#fff">⚔</text></g>`;
+    });
+    // regalos de la tribu
+    (S2.gifts || []).forEach(g => {
+      if (g.taken !== null) return;
+      const E = b.edges[g.edge];
+      const ic = g.kind === 'vp' ? '★' : g.kind === 'dev' ? '🂠' : '⚓';
+      const fill = g.kind === 'vp' ? '#f2c230' : g.kind === 'dev' ? '#e8dcc0' : '#cde8f7';
+      out += `<g class="sf-gift" transform="translate(${E.x * S},${E.y * S})"><title>${g.kind === 'vp' ? 'Punto de victoria' : g.kind === 'dev' ? 'Carta de desarrollo' : 'Puerto'} de la tribu</title>
+        <circle r="10" fill="${fill}" stroke="#5a3a17" stroke-width="1.8"/><text y="4" text-anchor="middle" font-size="11" font-weight="900" fill="#3a2a12">${ic}</text></g>`;
+    });
+    // aldeas (Tela para Catan)
+    (S2.villages || []).forEach(x => {
+      const V = b.vertices[x.v];
+      const red = x.number === 6 || x.number === 8;
+      out += `<g class="sf-village" transform="translate(${V.x * S},${V.y * S})"><title>Aldea del ${x.number}: ${x.cloth} tela(s)</title>
+        <circle r="13" fill="#f6e8c6" stroke="#8a6d3b" stroke-width="1.8"/><text y="4" text-anchor="middle" font-size="13" font-weight="800" font-family="Georgia,serif" fill="${red ? '#c0281c' : '#2b2b2b'}">${x.number}</text>
+        <g transform="translate(12,-11)"><circle r="7.5" fill="#8a3fb0" stroke="#fff" stroke-width="1.2"/><text y="3.5" text-anchor="middle" font-size="9" font-weight="900" fill="#fff">${x.cloth}</text></g>
+        ${x.conn.map((p, i) => `<circle cx="${-12 + i * 6}" cy="15" r="3" fill="${col(p)}" stroke="#1b1b1b" stroke-width=".8"/>`).join('')}</g>`;
+    });
+    // fortalezas piratas y cruces de destino
+    (S2.forts || []).forEach(f => {
+      const V = b.vertices[f.v], Ci = b.vertices[f.circle];
+      out += `<circle cx="${Ci.x * S}" cy="${Ci.y * S}" r="10" fill="none" stroke="${col(f.owner)}" stroke-width="3.5" opacity=".9"><title>Destino de la ruta de ${view.players[f.owner] ? view.players[f.owner].name : ''}</title></circle>`;
+      if (f.hp <= 0) return;
+      out += `<g transform="translate(${V.x * S},${V.y * S})"><title>Fortaleza pirata de ${view.players[f.owner] ? view.players[f.owner].name : ''}: ${f.hp} de 3</title>
+        <path d="M-11,9 L-11,-5 L-7,-5 L-7,-9 L-3,-9 L-3,-5 L3,-5 L3,-9 L7,-9 L7,-5 L11,-5 L11,9 Z" fill="#2b2b2f" stroke="${col(f.owner)}" stroke-width="2.5"/>
+        <text y="6" text-anchor="middle" font-size="10" font-weight="900" fill="#fff">${f.hp}</text></g>`;
+    });
+    // Las maravillas: estrecho (violeta), páramo (marrón) y cruces prohibidos al empezar (!)
+    const sq = (v, fill) => { const V = b.vertices[v]; return `<rect x="${V.x * S - 7}" y="${V.y * S - 7}" width="14" height="14" fill="${fill}" stroke="#1b1b1b" stroke-width="1" opacity=".85"/>`; };
+    (S2.purple || []).forEach(v => { out += sq(v, '#8e3fb0'); });
+    (S2.brown || []).forEach(v => { out += sq(v, '#7a2c22'); });
+    if (view.phase === 'setup') (S2.excl || []).forEach(v => { const V = b.vertices[v]; out += `<text x="${V.x * S}" y="${V.y * S + 6}" text-anchor="middle" font-size="18" font-weight="900" fill="#d01c1c" stroke="#fff" stroke-width=".8">!</text>`; });
+    return out;
+  }
+
   function tbPieces(view, b, hl) {
     const T = view.tb;
     let out = '';
@@ -459,6 +505,7 @@
       // marco de mar (y bancos de pesca)
       b.hexes.filter(h => isWaterT(h.terrain)).forEach(h => {
         out += `<polygon points="${hexPoints(h, 1.02)}" fill="url(#${this.uid}-${h.terrain})"/>${decor(h)}`;
+        if (h.frame && b.isSF) out += `<polygon points="${hexPoints(h, 1.02)}" fill="rgba(8,30,60,.28)"/>`;
       });
       // sombra de la isla
       b.hexes.filter(h => isTileT(h.terrain)).forEach(h => {
@@ -477,19 +524,20 @@
 
     render(view, hl) {
       const b = view.board;
-      const key = b.hexes.length + ':' + b.hexes.map(h => h.terrain + (h.number || '')).join(',');
+      const key = b.hexes.length + ':' + b.hexes.map(h => h.terrain + (h.number || '')).join(',') + '|' + (b.ports || []).map(p => p.edge).join(',');
       if (key !== this.boardKey) { this.boardKey = key; this.renderStatic(b); this.prevPieces = new Set(); }
       let out = '';
       b.hexes.forEach(h => { if (h.number) out += token(h); });
       const seen = new Set();
+      const colorOf = o => o < 0 || !view.players[o] ? 'neutral' : view.players[o].color;
       Object.entries(view.roads).forEach(([e, r]) => {
         const k = 'e' + e + r.type;
         seen.add(k);
         const cls = this.prevPieces.size && !this.prevPieces.has(k) ? 'new' : '';
-        out += r.type === 'ship' ? shipSVG(b, +e, view.players[r.owner].color, cls) : r.bridge ? bridgeSVG(b, +e, view.players[r.owner].color, cls)
-          : roadSVG(b, +e, view.players[r.owner].color, cls + (r.damaged ? ' damaged' : ''), r.damaged);
+        const col = colorOf(r.owner);
+        out += r.type === 'ship' ? shipSVG(b, +e, col, cls) : r.bridge ? bridgeSVG(b, +e, col, cls)
+          : roadSVG(b, +e, col, cls + (r.damaged ? ' damaged' : ''), r.damaged);
       });
-      const colorOf = o => o < 0 || !view.players[o] ? 'neutral' : view.players[o].color;
       Object.entries(view.buildings).forEach(([v, bd]) => {
         const k = 'v' + v + bd.type;
         seen.add(k);
@@ -511,6 +559,7 @@
       if (view.pirate !== null && view.pirate !== undefined) out += pirateSVG(b.hexes[view.pirate]);
       if (view.pe) out += pePieces(view, b, hl || {});
       if (view.tb) out += tbPieces(view, b, hl || {});
+      if (view.sf) out += sfPieces(view, b);
       this.gPieces.innerHTML = out;
       this.renderHL(b, hl || {});
     }

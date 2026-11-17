@@ -41,11 +41,11 @@
 - Implementado: todo lo anterior para 3-4, y la ampliación 5-6 con **jugadores en pareja** (regla de 2022). La antigua
   **fase de construcción especial** se puede elegir como opción en el menú.
 - Con 2 jugadores se usa «Catan para dos» (variante de Mercaderes y Bárbaros).
-- Las fichas numéricas del tablero 3-4 se colocan en **espiral alfabética** (A…R) desde una esquina; se prueba desde
-  otra esquina si quedaran dos fichas rojas juntas. El primer jugador se decide **tirando los dados** (los empatados
-  vuelven a tirar). Pruebas: `node tools/test-base.js`.
-- Diferencias:
-  - En el tablero 5-6 las fichas se reparten al azar sin 6/8 adyacentes: no se conocen los valores de las fichas
-    A…ZC de la ampliación.
-  - Los puertos se reparten de forma espaciada por la costa (no en las posiciones fijas del marco).
+- Las fichas numéricas se colocan en **espiral alfabética** desde una esquina, en sentido antihorario hacia el centro y
+  saltando los desiertos: A…R en el tablero 3-4 y A…Y, ZA, ZB, ZC en el 5-6 (valores leídos del tablero de ejemplo del
+  reglamento 2022; el juego reproduce ese ejemplo exacto). Si quedaran dos fichas rojas juntas, se prueba desde otra esquina.
+- **Puertos en los lugares fijos del marco** (leídos de los tableros de ejemplo): 9 en el 3-4 y 11 en el 5-6. Como en la
+  preparación variable del reglamento, las 9 piezas de puerto del juego básico se reparten al azar sobre esos lugares; en el 5-6,
+  el 2:1 de lana y el 3:1 impresos en los marcos pequeños quedan siempre en su sitio.
+- El primer jugador se decide **tirando los dados** (los empatados vuelven a tirar). Pruebas: `node tools/test-base.js`.
 - Variantes extra ya implementadas: ladrón amistoso (de Mercaderes y Bárbaros) y PV para ganar configurables.

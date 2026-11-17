@@ -12,7 +12,7 @@
   };
 
   function resRow(r, size = 18) {
-    return C.KEYS.filter(k => r[k] > 0).map(k => `<span class="rr">${icon(k, size)}<b>${r[k]}</b></span>`).join('') || '<i>nada</i>';
+    return C.KEYS.concat('gold').filter(k => r[k] > 0).map(k => `<span class="rr">${icon(k, size)}<b>${r[k]}</b></span>`).join('') || '<i>nada</i>';
   }
 
   class GameUI {
@@ -148,6 +148,7 @@
         if (this.isCK() && this.ckEvent(ev, v)) continue;
         if (this.isPE() && this.peEvent(ev, v)) continue;
         if (this.isTB() && this.tbEvent(ev, v)) continue;
+        if (this.isSF() && this.sfEvent(ev, v)) continue;
         if (ev.type === 'roll') { this.animateDice(ev.dice, ev.eventDie); C.Sound.play('dice'); }
         else if (ev.type === 'build') C.Sound.play(ev.what);
         else if (ev.type === 'robber') C.Sound.play(ev.pirate ? 'pirate' : 'robber');
@@ -177,8 +178,8 @@
     // ---------- render ----------
     render() {
       const v = this.view;
-      this.$.mode.textContent = ' · ' + (this.isPE() ? 'P&E: ' + C.PE.SCENARIOS[v.pe.scenario].name : this.isTB() && v.tb.scenario ? 'M&B: ' + C.TB.SCENARIOS[v.tb.scenario].name : C.MODES[v.mode].name) + ' · ' + v.vpTarget + ' PV';
-      this.$.turn.textContent = v.phase === 'setup' ? 'Colocación inicial' : 'Turno ' + v.turn;
+      this.$.mode.textContent = ' · ' + (this.isPE() ? 'P&E: ' + C.PE.SCENARIOS[v.pe.scenario].name : this.isTB() && v.tb.scenario ? 'M&B: ' + C.TB.SCENARIOS[v.tb.scenario].name : this.isSF() ? this.sfTitle() : C.MODES[v.mode].name) + ' · ' + v.vpTarget + ' PV';
+      this.$.turn.textContent = v.phase === 'setup' ? 'Colocación inicial' : v.phase === 'sfHarbor' && v.turn === 0 ? 'Puertos' : 'Turno ' + v.turn;
       if (this.isCK()) {
         this.$.bank.innerHTML = C.KEYS.map(k => `<span class="bk">${icon(k, 16)}${v.bank[k]}</span>`).join('') +
           C.CK.AREAS.map(a => `<span class="bk" title="Cartas de progreso de ${C.CK.AREA_NAME[a]}"><i class="mini-card prog" style="background:${C.CK.AREA_COLOR[a]}"></i>${v.ck.decks[a]}</span>`).join('');
@@ -191,6 +192,7 @@
       this.ckRenderTrack();
       this.peRenderPanel();
       this.tbRenderPanel();
+      this.sfRenderPanel();
       if (this.impDraw) this.impDraw();
       this.renderPlayers();
       this.renderBanner();
@@ -220,6 +222,7 @@
         const vp = p.id === v.me || v.phase === 'ended' ? (p.vpTotal !== undefined ? p.vpTotal : p.vp) : p.vp;
         const ck = this.isCK() ? this.ckPlayerExtra(p) : this.isPE() ? this.pePlayerExtra(p) : this.isTB() ? this.tbPlayerExtra(p) : null;
         if (ck) tags.push(...ck.tags);
+        if (this.isSF()) tags.push(...this.sfTags(p));
         return `<div class="pcard ${cur ? 'current' : ''} ${p.id === v.me ? 'mine' : ''}" style="--pc:${C.colorHex(p.color)}">
           <div class="pc-avatar">${esc(p.avatar || p.name[0])}</div>
           <div class="pc-main">
@@ -242,6 +245,7 @@
       if (this.isCK()) { const t = this.ckStatus(); if (t) return t; }
       if (this.isPE()) { const t = this.peStatus(); if (t) return t; }
       if (this.isTB()) { const t = this.tbStatus(); if (t) return t; }
+      if (this.isSF()) { const t = this.sfStatus(); if (t) return t; }
       const cur = v.players[v.current];
       const who = this.pname(v.current);
       switch (v.phase) {
@@ -275,7 +279,8 @@
 
     renderBanner() {
       const mine = this.isMyTurn() || (this.view.pendingDiscard || {})[this.me] || (this.view.pendingGold || {})[this.me] || (this.view.pendingGive || {})[this.me] ||
-        (this.view.phase === 'specialBuild' && this.view.specialBuilder === this.me);
+        (this.view.phase === 'specialBuild' && this.view.specialBuilder === this.me) ||
+        (this.view.phase === 'ckChoice' && this.view.ck.choices[0] && this.view.ck.choices[0].pid === this.me);
       this.$.banner.className = 'status-banner' + (mine ? ' mine' : '');
       this.$.banner.innerHTML = this.statusText();
     }
@@ -285,6 +290,7 @@
       if (this.isCK()) { const h = this.ckHighlights(); if (h) return h; }
       if (this.isPE()) return this.peHighlights();
       if (this.isTB()) { const h = this.tbHighlights(); if (h) return h; }
+      if (this.isSF()) { const h = this.sfHighlights(); if (h) return h; }
       const hl = {};
       if (v.phase === 'setup' && v.current === me) {
         if (v.setup.step === 'settlement') hl.vertices = C.validSettlements(v, me, true);
@@ -363,6 +369,7 @@
       else {
         const canEnd = main || (this.isTB() && v.phase === 'tbMove' && this.isMyTurn());
         if (this.isTB()) html += this.tbActionsHTML();
+        if (this.isSF()) html += this.sfActionsHTML();
         html += `<button class="abtn end ${canEnd ? 'primary' : ''}" data-a="end" ${canEnd ? '' : 'disabled'}><span class="ab-l">Terminar turno</span></button>`;
       }
       html += `<div class="pieces-left" title="Piezas restantes">${pieceSVG('road', P.color, 16)}${P.pieces.road}
@@ -378,6 +385,7 @@
       if (this.isCK() && this.ckAction(a)) return;
       if (this.isPE() && this.peAction(a)) return;
       if (this.isTB() && this.tbAction(a)) return;
+      if (this.isSF() && this.sfAction(a)) return;
       if (a === 'roll') this.send({ type: 'roll' });
       else if (a === 'end') this.endTurn();
       else if (a === 'pass') this.send({ type: 'endTurn' });
@@ -408,6 +416,7 @@
       if (this.isCK() && this.ckBoardClick(kind, id)) return;
       if (this.isPE() && this.peBoardClick(kind, id)) return;
       if (this.isTB() && this.tbBoardClick(kind, id)) return;
+      if (this.isSF() && this.sfBoardClick(kind, id)) return;
       if (v.phase === 'setup' && v.current === me) {
         if (kind === 'vertex') this.send({ type: 'buildSettlement', vertex: id });
         if (kind === 'edge') this.chooseRouteKind(id, v.setup.vertex);
@@ -426,7 +435,7 @@
       else if (this.mode === 'settlement' && kind === 'vertex') { this.setMode(null); this.send({ type: 'buildSettlement', vertex: id }); }
       else if (this.mode === 'city' && kind === 'vertex') { this.setMode(null); this.send({ type: 'buildCity', vertex: id }); }
       else if (this.mode === 'moveFrom' && kind === 'edge') { this.mode = 'moveTo'; this.moveFrom = id; this.render(); }
-      else if (this.mode === 'moveTo' && kind === 'edge') { this.setMode(null); this.send({ type: 'moveShip', from: this.moveFrom, to: id }); }
+      else if (this.mode === 'moveTo' && kind === 'edge') { const from = this.moveFrom; this.setMode(null); this.send({ type: 'moveShip', from, to: id }); }
     }
 
     chooseRouteKind(edge, setupVertex) {
@@ -561,7 +570,7 @@
           }).join('')}</div><button class="mini" data-tcancel>Cancelar oferta</button>`;
       } else if (t.to === null || t.to === me) {
         const r = t.responses[me];
-        const can = C.hasRes(this.P.resources, t.get);
+        const can = C.hasRes(this.P.resources, t.get) && (t.get.gold || 0) <= (this.P.gold || 0);
         body = `<div class="tf-head">${this.pname(t.from)} propone un cambio</div>
           <div class="tf-deal"><div>Te da ${resRow(t.give)}</div><div>Pide ${resRow(t.get)}</div></div>
           ${r ? `<div class="tf-done">Respondiste: ${r === 'accept' ? 'aceptar' : 'rechazar'}</div>` :
@@ -586,7 +595,10 @@
       const v = this.view, me = this.me, P = this.P;
       const ratios = C.tradeRatios(v, me);
       const KS = this.cardKeys();
-      const zero = () => Object.fromEntries(KS.map(k => [k, 0]));
+      // con jugadores, en Piratas y Exploradores también se comercia oro
+      const KT = this.isPE() ? KS.concat('gold') : KS;
+      const hand = this.isPE() ? Object.assign({}, P.resources, { gold: P.gold }) : P.resources;
+      const zero = () => Object.fromEntries(KT.map(k => [k, 0]));
       const st = { tab: 'bank', give: null, get: null, n: 1, offerGive: zero(), offerGet: zero(), to: 'all' };
       const draw = (m) => {
         const others = v.players.filter(p => p.id !== me);
@@ -605,11 +617,12 @@
               <span>${st.n * ratios[st.give]} ${C.RES_NAME[st.give]} → ${st.n} ${C.RES_NAME[st.get]}</span>` : '<span>Elige qué das y qué recibes</span>'}
               <button class="btn primary" data-bank ${st.give && st.get && maxN >= 1 ? '' : 'disabled'}>Cambiar</button></div>`;
         } else {
-          const counter = (obj, key, lim) => KS.map(k => `<div class="cnt">${icon(k, 30)}<div class="stepper"><button data-c="${key}:${k}:-1">−</button><b>${obj[k]}</b>
+          const counter = (obj, key, lim) => KT.map(k => `<div class="cnt">${icon(k, 30)}<div class="stepper"><button data-c="${key}:${k}:-1">−</button><b>${obj[k]}</b>
             <button data-c="${key}:${k}:1" ${lim && obj[k] >= lim[k] ? 'disabled' : ''}>+</button></div></div>`).join('');
-          const ok = C.total(st.offerGive) > 0 && C.total(st.offerGet) > 0 && KS.every(k => !(st.offerGive[k] && st.offerGet[k]));
-          html += `<div class="tr-label">Ofreces (de tu mano)</div><div class="cnt-row ${KS.length > 5 ? 'k8' : ''}">${counter(st.offerGive, 'g', P.resources)}</div>
-            <div class="tr-label">Pides</div><div class="cnt-row ${KS.length > 5 ? 'k8' : ''}">${counter(st.offerGet, 'w', null)}</div>
+          const sum = r => KT.reduce((a, k) => a + (r[k] || 0), 0);
+          const ok = sum(st.offerGive) > 0 && sum(st.offerGet) > 0 && KT.every(k => !(st.offerGive[k] && st.offerGet[k]));
+          html += `<div class="tr-label">Ofreces (de tu mano)</div><div class="cnt-row ${KT.length > 5 ? 'k8' : ''}">${counter(st.offerGive, 'g', hand)}</div>
+            <div class="tr-label">Pides</div><div class="cnt-row ${KT.length > 5 ? 'k8' : ''}">${counter(st.offerGet, 'w', null)}</div>
             <div class="tr-foot"><label>Para: <select data-to><option value="all">Todos</option>${others.map(p => `<option value="${p.id}" ${String(st.to) === String(p.id) ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>
             <button class="btn primary" data-offer ${ok ? '' : 'disabled'}>Enviar oferta</button></div>`;
         }
@@ -681,6 +694,7 @@
       else if (v.phase === 'ended') key = 'end';
       else if (this.isCK()) key = this.ckModalKey();
       else if (this.isTB()) key = this.tbModalKey();
+      else if (this.isSF()) key = this.sfModalKey();
       if (this.modalKey && this.modalKey !== key && this.forcedClose) { this.forcedClose(); this.forcedClose = null; this.modalKey = null; }
       if (!key || key === this.modalKey) return;
       this.modalKey = key;
@@ -691,11 +705,13 @@
         this.forcedClose = this.pickResources(why, why === 'Saboteador' ? `Debes descartar ${n} cartas` : `Tienes más de ${lim} cartas: descarta ${n}`, n, this.P.resources, r => this.send({ type: 'discard', resources: r }), false, true, this.cardKeys());
       } else if (key.startsWith('gold')) {
         const n = v.pendingGold[me];
-        this.forcedClose = this.pickResources('Río de oro', `Elige ${n} recurso(s) del banco`, n, v.bank, r => this.send({ type: 'chooseGold', resources: r }), false);
+        this.forcedClose = this.pickResources(v.sf && v.sf.goldWhy ? v.sf.goldWhy : 'Río de oro', `Elige ${n} recurso(s) del banco`, n, v.bank, r => this.send({ type: 'chooseGold', resources: r }), false);
       } else if (key === 'end') {
         this.showGameOver();
       } else if (this.isTB()) {
         this.forcedClose = this.tbOpenModal(key);
+      } else if (this.isSF()) {
+        this.forcedClose = this.sfOpenModal(key);
       } else {
         this.forcedClose = this.ckOpenModal(key);
       }
@@ -781,7 +797,7 @@
         <p class="muted">Gran Ruta Comercial (5+ tramos seguidos) y Gran Ejército (3+ caballeros): 2 PV cada uno.</p>`, { dismiss: true });
     }
     openRules() {
-      const rk = { cities56: 'citiesAll', extended: 'classic56', explorers56: 'explorers', traders56: 'traders' }[this.view.mode] || this.view.mode;
+      const rk = { cities56: 'citiesAll', extended: 'classic56', explorers56: 'explorers', traders56: 'traders', seafarers56: 'seafarersAll' }[this.view.mode] || this.view.mode;
       this.modal(`<div class="rules-modal">${C.RULES_TEXT[rk] || ''}</div><button class="modal-x" data-close>×</button>`, {
         dismiss: true, cls: 'wide',
         mount: (m, close) => m.addEventListener('click', e => { if (e.target.closest('[data-close]')) close(); })

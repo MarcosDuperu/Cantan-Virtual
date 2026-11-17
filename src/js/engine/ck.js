@@ -78,7 +78,8 @@
       barbarian: 0, track: 7, attacks: 0, event: null, redDie: null,
       metropolis: { trade: null, politics: null, science: null },
       decks: {}, merchant: null, crane: null, fleet: null, alchemist: null,
-      peek: null, freeKnight: null, giveTo: null, pendingProgressDiscard: {}, lastAttack: null
+      peek: null, freeKnight: null, giveTo: null, pendingProgressDiscard: {}, lastAttack: null,
+      choices: [], choiceThen: null
     };
     AREAS.forEach(a => {
       const d = [];
@@ -167,16 +168,9 @@
     return P.knightPieces[k.level + 1] > 0;
   }
 
+  // el dueño del caballero desalojado elige a dónde lo mueve (o lo retira)
   function relocateKnight(s, from, knight) {
-    const r = reachable(s, knight.owner, from);
-    const spots = r.empty.filter(v => v !== from);
-    if (spots.length) {
-      s.knights[spots[0]] = knight;
-      R().log(s, 'El caballero de ' + name(s, knight.owner) + ' se retira a otro cruce.', knight.owner);
-    } else {
-      P_(s, knight.owner).knightPieces[knight.level]++;
-      R().log(s, 'El caballero de ' + name(s, knight.owner) + ' no tiene a dónde ir y vuelve a su reserva.', knight.owner);
-    }
+    s.ck.choices.push({ kind: 'relocate', pid: knight.owner, from, knight });
   }
 
   function isOpenRoad(s, e) {
@@ -203,6 +197,104 @@
 
   function inventorHexes(s) {
     return s.board.hexes.filter(h => h.number && ![2, 12, 6, 8].includes(h.number)).map(h => h.id);
+  }
+
+  // ---------- decisiones de otros jugadores ----------
+  // Algunas cartas y el ataque bárbaro piden que un jugador elija (a veces uno que no está en su turno).
+  // Se encolan en s.ck.choices y la fase pasa a 'ckChoice' hasta resolverlas; luego sigue s.ck.choiceThen.
+  function choiceOptions(s, c) {
+    switch (c.kind) {
+      case 'relocate': return reachable(s, c.pid, c.from).empty.filter(v => v !== c.from);
+      case 'deserter': return Object.keys(s.knights).map(Number).filter(v => s.knights[v].owner === c.pid);
+      case 'pillage': return citiesOf(s, c.pid).filter(v => !s.buildings[v].metro);
+      // en la vista del cliente los mazos llegan como cantidades
+      case 'defenderDeck': return AREAS.filter(a => { const d = s.ck.decks[a]; return (typeof d === 'number' ? d : d.length) > 0; });
+      case 'harborOffer': return RES.filter(k => P_(s, c.pid).resources[k] > 0);
+      case 'harborReturn': return COMM.filter(k => P_(s, c.pid).resources[k] > 0);
+    }
+    return [];
+  }
+
+  function resolveChoice(s, c, pick) {
+    const P = P_(s, c.pid);
+    switch (c.kind) {
+      case 'relocate':
+        if (pick === null || pick === undefined) {
+          P.knightPieces[c.knight.level]++;
+          R().log(s, 'El caballero de ' + P.name + ' vuelve a su reserva.', c.pid);
+        } else {
+          s.knights[pick] = c.knight;
+          R().log(s, P.name + ' retira su caballero a otro cruce.', c.pid);
+          R().event(s, { type: 'build', what: 'knightMove', pid: c.pid, at: pick });
+        }
+        R().updateLongestRoad(s);
+        break;
+      case 'deserter': {
+        const k = s.knights[pick];
+        delete s.knights[pick];
+        P.knightPieces[k.level]++;
+        R().log(s, P.name + ' retira un ' + KNIGHT_NAME[k.level] + '.', c.pid);
+        R().updateLongestRoad(s);
+        // quien jugó el Desertor coloca uno de la misma fuerza (o el más fuerte que le quede, si no tiene)
+        const B = P_(s, c.by);
+        let lvl = k.level;
+        while (lvl > 1 && B.knightPieces[lvl] <= 0) lvl--;
+        if (B.knightPieces[lvl] > 0 && knightSpots(s, c.by).length) s.ck.choiceThen = { kind: 'freeKnight', level: lvl, active: k.active };
+        break;
+      }
+      case 'pillage': {
+        const b = s.buildings[pick];
+        if (b.wall) { b.wall = false; P.walls--; }
+        P.pieces.city++;
+        if (P.pieces.settlement > 0) { b.type = 'settlement'; P.pieces.settlement--; } else delete s.buildings[pick];
+        R().log(s, 'Los bárbaros saquean una ciudad de ' + P.name + ': queda reducida a poblado.', c.pid);
+        R().event(s, { type: 'build', what: 'pillage', pid: c.pid, at: pick });
+        R().updateLongestRoad(s);
+        break;
+      }
+      case 'defenderDeck':
+        drawProgress(s, c.pid, pick);
+        break;
+      case 'harborOffer':
+        if (pick) {
+          P.resources[pick]--; P_(s, c.target).resources[pick]++;
+          R().log(s, P.name + ' da 1 de ' + C.RES_NAME[pick] + ' a ' + name(s, c.target) + '.', c.pid);
+          s.ck.choices.unshift({ kind: 'harborReturn', pid: c.target, to: c.pid });
+        }
+        break;
+      case 'harborReturn':
+        P.resources[pick]--; P_(s, c.to).resources[pick]++;
+        R().log(s, P.name + ' entrega 1 de ' + C.RES_NAME[pick] + ' a ' + name(s, c.to) + '.', c.pid);
+        break;
+    }
+  }
+
+  // resuelve solas las decisiones sin alternativa; deja la fase esperando la primera que sí la tenga
+  function advanceChoices(s) {
+    while (s.ck.choices.length) {
+      const c = s.ck.choices[0];
+      const opts = choiceOptions(s, c);
+      if (opts.length > 1 || (opts.length === 1 && (c.kind === 'relocate' || c.kind === 'harborOffer'))) { s.phase = 'ckChoice'; return; }
+      s.ck.choices.shift();
+      if (opts.length || c.kind === 'relocate') resolveChoice(s, c, opts.length ? opts[0] : null);
+    }
+    finishChoices(s);
+  }
+
+  function beginChoices(s, then) {
+    if (!s.ck.choices.length) return false;
+    s.ck.choiceThen = then;
+    advanceChoices(s);
+    return true;
+  }
+
+  function finishChoices(s) {
+    const t = s.ck.choiceThen || { kind: 'main' };
+    s.ck.choiceThen = null;
+    if (t.kind === 'roll') { s.phase = 'roll'; rollRest(s, t.pid, t.sum); return; }
+    if (t.kind === 'freeKnight') { s.ck.freeKnight = { level: t.level, active: t.active }; s.phase = 'placeKnight'; return; }
+    s.phase = 'main';
+    R().checkWin(s, s.current);
   }
 
   // ---------- puntos y comercio ----------
@@ -322,19 +414,12 @@
       const exposed = s.players.filter(p => citiesOf(s, p.id).some(v => !s.buildings[v].metro)).map(p => p.id);
       if (exposed.length) {
         const min = Math.min(...exposed.map(p => strengths[p]));
-        exposed.filter(p => strengths[p] === min).forEach(pid => {
-          const cs = citiesOf(s, pid).filter(v => !s.buildings[v].metro);
-          cs.sort((a, b) => s.board.vertices[a].hexes.reduce((x, h) => x + (s.board.hexes[h].number ? C.PIPS[s.board.hexes[h].number] : 0), 0) -
-            s.board.vertices[b].hexes.reduce((x, h) => x + (s.board.hexes[h].number ? C.PIPS[s.board.hexes[h].number] : 0), 0));
-          const v = cs[0];
-          const b = s.buildings[v];
-          const P = P_(s, pid);
-          if (b.wall) { b.wall = false; P.walls--; }
-          P.pieces.city++;
-          if (P.pieces.settlement > 0) { b.type = 'settlement'; P.pieces.settlement--; } else delete s.buildings[v];
-          result.losers.push(pid);
-          R().log(s, 'Los bárbaros saquean una ciudad de ' + name(s, pid) + ': queda reducida a poblado.', pid);
-        });
+        const n = s.players.length;
+        for (let i = 0; i < n; i++) {
+          const pid = (s.current + i) % n;
+          if (exposed.includes(pid) && strengths[pid] === min) { result.losers.push(pid); s.ck.choices.push({ kind: 'pillage', pid }); }
+        }
+        R().log(s, 'Los bárbaros ganan: saquean una ciudad de ' + result.losers.map(p => name(s, p)).join(', ') + '.');
       }
       R().updateLongestRoad(s);
     } else {
@@ -347,11 +432,9 @@
       } else if (max > 0) {
         result.defenders = top;
         R().log(s, '¡Catan resiste! Empate entre los mejores defensores: cada uno recibe una carta de progreso.');
-        top.forEach(pid => {
-          const P = P_(s, pid);
-          const area = AREAS.filter(a => s.ck.decks[a].length).sort((a, b) => P.improve[b] - P.improve[a])[0];
-          if (area) drawProgress(s, pid, area);
-        });
+        // eligen en orden de turno, empezando por quien tiró
+        const n = s.players.length;
+        top.slice().sort((x, y) => (x - s.current + n) % n - (y - s.current + n) % n).forEach(pid => s.ck.choices.push({ kind: 'defenderDeck', pid }));
       } else R().log(s, '¡Catan resiste el ataque!');
     }
     Object.values(s.knights).forEach(k => { k.active = false; });
@@ -387,6 +470,11 @@
         if (lvl >= 1 && red <= lvl + 1) drawProgress(s, p, ev);
       }
     }
+    if (!beginChoices(s, { kind: 'roll', pid, sum })) rollRest(s, pid, sum);
+  }
+
+  // lo que sigue al dado de eventos (puede esperar a que se resuelva un ataque bárbaro)
+  function rollRest(s, pid, sum) {
     R().checkWin(s, pid);
     if (s.phase === 'ended') return;
     if (sum === 7) {
@@ -429,6 +517,20 @@
         if (s.ck.pendingProgressDiscard[pid] <= 0 || P.progress.length <= 4) delete s.ck.pendingProgressDiscard[pid];
       }
       R().log(s, name(s, pid) + ' descarta una carta de progreso.', pid);
+      return ok();
+    }
+
+    if (s.phase === 'ckChoice') {
+      const c = s.ck.choices[0];
+      if (!c || c.pid !== pid) return err('Esperando a ' + (c ? name(s, c.pid) : 'otro jugador'));
+      if (t !== 'ckChoose') return err('Primero decide');
+      const opts = choiceOptions(s, c);
+      const pick = a.pick === undefined ? null : a.pick;
+      const canSkip = c.kind === 'relocate' || c.kind === 'harborOffer';
+      if (!(pick === null && canSkip) && !opts.includes(pick)) return err('Opción no válida');
+      s.ck.choices.shift();
+      resolveChoice(s, c, pick);
+      advanceChoices(s);
       return ok();
     }
 
@@ -586,6 +688,7 @@
       } else return err('Destino no válido');
       R().event(s, { type: 'build', what: 'knightMove', pid, at: a.to });
       R().updateLongestRoad(s);
+      beginChoices(s, { kind: 'main' });
       return ok();
     }
     if (t === 'chaseRobber') {
@@ -706,20 +809,8 @@
       case 'deserter': {
         const T = s.players[a.target];
         if (!T || T.id === pid) return err('Elige un rival');
-        const ks = Object.keys(s.knights).map(Number).filter(v => s.knights[v].owner === T.id);
-        if (!ks.length) return err('Ese jugador no tiene caballeros');
-        ks.sort((x, y) => s.knights[x].level - s.knights[y].level);
-        const v = ks[0], k = s.knights[v];
-        delete s.knights[v];
-        T.knightPieces[k.level]++;
-        after = () => {
-          R().log(s, T.name + ' pierde un ' + KNIGHT_NAME[k.level] + '.', T.id);
-          R().updateLongestRoad(s);
-          if (P.knightPieces[k.level] > 0 && knightSpots(s, pid).length) {
-            s.ck.freeKnight = { level: k.level, active: k.active };
-            s.phase = 'placeKnight';
-          }
-        };
+        if (!Object.values(s.knights).some(k => k.owner === T.id)) return err('Ese jugador no tiene caballeros');
+        after = () => { s.ck.choices.push({ kind: 'deserter', pid: T.id, by: pid }); beginChoices(s, { kind: 'main' }); };
         break;
       }
       case 'diplomat': {
@@ -738,7 +829,7 @@
         const k = s.knights[a.vertex];
         if (!k || k.owner === pid || !s.board.vertices[a.vertex].edges.some(e => s.roads[e] && s.roads[e].owner === pid)) return err('Elige un caballero rival en un cruce de tus carreteras');
         delete s.knights[a.vertex];
-        after = () => { relocateKnight(s, a.vertex, k); R().updateLongestRoad(s); };
+        after = () => { R().updateLongestRoad(s); relocateKnight(s, a.vertex, k); beginChoices(s, { kind: 'main' }); };
         break;
       }
       case 'saboteur': {
@@ -769,16 +860,15 @@
         break;
       }
       case 'commercialHarbor': {
-        const swaps = [];
-        opp.forEach(o => {
-          const comm = COMM.filter(k => o.resources[k] > 0).sort((x, y) => o.resources[y] - o.resources[x])[0];
-          const give = RES.filter(k => P.resources[k] > 0).sort((x, y) => P.resources[y] - P.resources[x])[0];
-          if (!comm || !give) return;
-          P.resources[give]--; o.resources[give]++;
-          o.resources[comm]--; P.resources[comm]++;
-          swaps.push(o.name);
-        });
-        after = () => R().log(s, swaps.length ? name(s, pid) + ' cambia recursos por mercancías con ' + swaps.join(', ') + '.' : 'Nadie tenía mercancías para cambiar.', pid);
+        // a cada rival con mercancías le ofreces 1 recurso a elección; él te da 1 mercancía a elección
+        const n = s.players.length;
+        after = () => {
+          for (let i = 1; i < n; i++) {
+            const o = (pid + i) % n;
+            if (!s.players[o].neutral && COMM.some(k => s.players[o].resources[k] > 0)) s.ck.choices.push({ kind: 'harborOffer', pid, target: o });
+          }
+          if (!beginChoices(s, { kind: 'main' })) R().log(s, 'Nadie tenía mercancías para cambiar.', pid);
+        };
         break;
       }
       case 'masterMerchant': {
@@ -845,7 +935,7 @@
   C.CK = {
     AREAS, AREA_COMM, AREA_NAME, AREA_COLOR, IMPROVEMENTS, METRO_NAME, PROGRESS, PROGRESS_AREA, PROGRESS_NAME, PROGRESS_HELP,
     KNIGHT_COST, ACTIVATE_COST, WALL_COST, KNIGHT_NAME,
-    init, roll, handle, extraVP, adjustRatios, afterCity, canEndTurn, onTurnStart, redact,
+    init, roll, handle, choiceOptions, extraVP, adjustRatios, afterCity, canEndTurn, onTurnStart, redact,
     knightSpots, knightTargets, canChase, promotable, activeStrength, totalStrength, barbarianStrength, defense, citiesOf, handLimit,
     isOpenRoad, merchantHexes, inventorHexes, adjacentHexes
   };

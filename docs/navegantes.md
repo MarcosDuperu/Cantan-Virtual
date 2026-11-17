@@ -39,10 +39,49 @@
 
 ## Estado en el juego
 
-- Implementado: escenario 1 **adaptado** (mapa propio de 8 hexágonos en 3 islas exteriores, 2 de oro),
-  barcos, movimiento de barcos, pirata, oro, Gran Ruta Comercial, 2 PV por isla nueva, 14 PV. Solo 3-4 jugadores.
-- Diferencias:
-  - El mapa no es el oficial (que tiene 12-13 posiciones de islas y difiere entre 3 y 4 jugadores).
-  - Los puertos solo están en la isla principal.
-  - La IA mueve un barco solo cuando en otro lugar queda claramente más cerca de un buen sitio para poblar.
-- Pendiente: mapas oficiales, escenarios 2-9 y ampliación 5-6.
+Implementado: los **9 escenarios** para 3-4 jugadores y la **ampliación 5-6** con jugadores en pareja
+(módulo `src/js/engine/sf.js`, interfaz `src/js/ui/sf-ui.js`, pruebas `tools/test-sf.js`).
+
+### Mapas
+
+- Transcritos de las ilustraciones del reglamento 3-4 (2021) y 5-6 (2023): terrenos, números, posición del ladrón y del
+  pirata, puertos, regalos de la tribu, aldeas, fortalezas, recorrido de la flota y cruces marcados.
+  Mapas distintos para 3 y 4 jugadores en los escenarios 1-4; uno solo para 3-4 en los escenarios 5-8; uno para 5-6 en cada escenario.
+- El mapa se dibuja **como en el reglamento**: hexágonos de lado plano y el norte arriba. Internamente el tablero se arma
+  con hexágonos de punta girados 90° y al final solo se giran las coordenadas de dibujo (la topología no cambia).
+- Alrededor del mapa hay un anillo de mar del **marco**: sirve para barcos y puertos de la costa, pero allí no van el ladrón
+  ni el pirata, y no se navega entre dos casillas del marco.
+- En «Hacia nuevas costas» 5-6 la isla grande se arma al azar con los terrenos y fichas del juego básico 5-6 (como dice el reglamento).
+- «Nuevo mundo» rellena el marco al azar (se repite si no sale ninguna isla de 4 o más hexágonos). Antes de los poblados,
+  empezando por el primer jugador y siguiendo a la izquierda, cada uno toma el puerto de arriba de la pila y lo coloca en un lado
+  entre tierra y mar (la máquina elige el lado donde más rinde).
+
+### Decisiones propias (datos que el reglamento solo muestra en dibujos o deja al jugador)
+
+- **Puertos**: los tipos se barajan en las posiciones del dibujo (regla general del reglamento). En el escenario 4 para 5-6 el dibujo
+  muestra 10 posiciones para 11 fichas: se usan 10. En «Tela para Catan» 5-6 hay 12 posiciones para 11 fichas: la que sobra es 3:1.
+  En «Nuevo mundo» y con los puertos regalados, un puerto no puede tocar un cruce que ya tenga puerto.
+- **Islas y zonas**: la bonificación cuenta islas (componentes de tierra). En «A través del desierto» el desierto no pertenece a
+  ninguna zona, así que la franja tras él es una zona ajena aunque esté unida a la isla principal por el desierto.
+- **Las maravillas**: la bonificación de 1 PV es por el primer poblado en cada isla pequeña (como en los demás escenarios).
+  La Gran Muralla pide **dos** poblados en cruces marrones («Settlements», en plural). El Monumento mide un tramo de 5 carreteras/barcos
+  cuyos cruces intermedios no tienen bifurcaciones propias. Empezar una maravilla usa un barco del jugador (se pone sobre la carta).
+  Los cruces «!» y los cuadros solo restringen la colocación inicial.
+- **Las islas piratas** (revisado contra el reglamento): la flota ataca al jugador que tiró, que es el «you» del texto («cada vez que
+  tiras… si la flota termina junto a uno de tus poblados te ataca»). El reglamento no prohíbe mover barcos, así que se aplican las
+  reglas generales con las de la ruta: solo se mueve el barco del extremo de la ruta (el resto queda entre él y el poblado inicial)
+  y solo a otro lado que mantenga la ruta más corta; un barco de guerra movido sigue siendo de guerra. La ruta solo puede crecer por
+  lados que dejen el extremo un paso más cerca del destino (primero el cruce de su color, luego la fortaleza); tampoco se ponen
+  barcos junto a la flota. No se puede poner un barco en la colocación inicial (ya hay uno). La fortaleza conquistada no gasta una
+  pieza de poblado. Si la flota pierde, el recurso ganado se elige como el oro.
+- **La tribu olvidada**: quien recibe un puerto elige en qué lado de la costa junto a uno de sus poblados lo pone (sin tocar otro
+  puerto); si no tiene sitio, queda guardado y lo coloca cuando construya un poblado en la costa. La máquina, y un puerto ganado
+  en la colocación inicial, lo ponen solos donde más rinde. Una carta de PV regalada se guarda como carta oculta.
+- **Tela para Catan**: el pirata roba una tela si quien mueve lo elige (o si la víctima no tiene recursos). Al llegar a una aldea
+  vacía se toma la tela de la reserva general.
+- **La isla de la niebla**: se descubren todos los hexágonos ocultos que tocan los dos cruces del barco o carretera construidos (o del
+  barco movido). Descubrir un río de oro deja elegir 1 recurso.
+
+### Pendiente
+
+- No se revisaron las diferencias de la 6.ª edición (2025).

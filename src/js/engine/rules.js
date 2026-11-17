@@ -22,8 +22,10 @@
       deck: { knight: 14, vp: 5, roadBuilding: 2, yearOfPlenty: 2, monopoly: 2 } },
     extended: { id: 'extended', name: 'Ampliación 5-6 jugadores', min: 5, max: 6, vp: 10, bank: 24, ships: false, specialBuild: true, pairs: true,
       deck: { knight: 20, vp: 5, roadBuilding: 3, yearOfPlenty: 3, monopoly: 3 } },
-    seafarers: { id: 'seafarers', name: 'Navegantes: Hacia nuevas costas', min: 3, max: 4, vp: 14, bank: 19, ships: true, specialBuild: false,
+    seafarers: { id: 'seafarers', name: 'Navegantes', min: 3, max: 4, vp: 14, bank: 19, ships: true, specialBuild: false, sf: true,
       deck: { knight: 14, vp: 5, roadBuilding: 2, yearOfPlenty: 2, monopoly: 2 } },
+    seafarers56: { id: 'seafarers56', name: 'Navegantes 5-6', min: 5, max: 6, vp: 14, bank: 24, ships: true, specialBuild: false, sf: true, pairs: true,
+      deck: { knight: 20, vp: 5, roadBuilding: 3, yearOfPlenty: 3, monopoly: 3 } },
     cities: { id: 'cities', name: 'Ciudades y Caballeros', min: 3, max: 4, vp: 13, bank: 19, commodities: 12, ships: false, specialBuild: false, ck: true, board: 'classic', deck: {} },
     cities56: { id: 'cities56', name: 'Ciudades y Caballeros 5-6', min: 5, max: 6, vp: 13, bank: 24, commodities: 18, ships: false, specialBuild: true, pairs: true, ck: true, board: 'extended', deck: {} },
     explorers: { id: 'explorers', name: 'Piratas y Exploradores', min: 2, max: 4, vp: 12, bank: 19, ships: false, specialBuild: false, pe: true, deck: {} },
@@ -37,7 +39,7 @@
   // Expansiones del menú: el número de jugadores decide si se usa la ampliación 5-6
   const EXPANSIONS = {
     classic: { id: 'classic', name: 'Clásico', vp: 10, min: 2, max: 6, modes: ['classic', 'extended'] },
-    seafarers: { id: 'seafarers', name: 'Navegantes', vp: 14, min: 3, max: 4, modes: ['seafarers', null] },
+    seafarers: { id: 'seafarers', name: 'Navegantes', vp: 14, min: 3, max: 6, modes: ['seafarers', 'seafarers56'] },
     cities: { id: 'cities', name: 'Ciudades y Caballeros', vp: 13, min: 3, max: 6, modes: ['cities', 'cities56'] },
     explorers: { id: 'explorers', name: 'Piratas y Exploradores', vp: 12, min: 2, max: 6, modes: ['explorers', 'explorers56'] },
     traders: { id: 'traders', name: 'Mercaderes y Bárbaros', vp: 10, min: 2, max: 6, modes: ['traders', 'traders56'] }
@@ -58,12 +60,12 @@
   const total = r => KEYS.reduce((s, k) => s + (r[k] || 0), 0);
   const hasRes = (have, need) => KEYS.every(k => (have[k] || 0) >= (need[k] || 0));
   const addRes = (a, b, sign = 1) => { KEYS.forEach(k => { if (a[k] !== undefined || b[k]) a[k] = (a[k] || 0) + sign * (b[k] || 0); }); };
-  const resText = r => KEYS.filter(k => r[k] > 0).map(k => r[k] + ' ' + RES_NAME[k]).join(', ') || 'nada';
+  const resText = r => KEYS.filter(k => r[k] > 0).map(k => r[k] + ' ' + RES_NAME[k]).concat(r.gold > 0 ? [r.gold + ' oro'] : []).join(', ') || 'nada';
 
   function createGame(config) {
     const mode = MODES[config.mode] || MODES.classic;
-    const board = C.generateBoard(mode.board || mode.id, config.options);
     const n = config.players.length;
+    const board = C.generateBoard(mode.board || mode.id, Object.assign({}, config.options, { players: n }));
     const deck = [];
     Object.entries(mode.deck).forEach(([k, c]) => { for (let i = 0; i < c; i++) deck.push(k); });
     shuffle(deck);
@@ -113,9 +115,10 @@
     if (mode.ck) C.CK.init(s, mode);
     if (mode.pe) C.PE.init(s, mode, config);
     const o = config.options || {};
-    if (C.TB && !mode.ck && !mode.pe && (mode.tb || o.events || o.harbormaster || n === 2)) C.TB.init(s, mode, config);
+    if (mode.sf) C.SF.init(s, mode, config);
+    if (C.TB && !mode.ck && !mode.pe && !mode.sf && (mode.tb || o.events || o.harbormaster || n === 2)) C.TB.init(s, mode, config);
     firstRolls.forEach((r, i) => log(s, (i ? 'Desempate: ' : 'Tiradas para empezar: ') + r.map(([id, v]) => players[id].name + ' ' + v).join(', ') + '.'));
-    log(s, 'Comienza la partida. ' + players[s.current].name + ' coloca primero.');
+    log(s, 'Comienza la partida. ' + players[s.current].name + (s.phase === 'setup' ? ' coloca primero.' : ' empieza.'));
     return s;
   }
 
@@ -137,6 +140,7 @@
 
   function actor(s) {
     if (s.tb && C.TB.actor) { const a = C.TB.actor(s); if (a !== undefined) return a; }
+    if (s.phase === 'ckChoice' && s.ck.choices.length) return s.ck.choices[0].pid;
     return s.phase === 'specialBuild' ? s.specialBuilder : s.current;
   }
 
@@ -152,6 +156,7 @@
     const vx = s.board.vertices[v];
     if (!vx || !vx.land || !distanceOk(s, v)) return false;
     if (s.tb && !C.TB.settleOk(s, pid, v, setup)) return false;
+    if (s.sf && !C.SF.settleOk(s, pid, v, setup)) return false;
     if (setup) return onHomeIsland(s, v);
     return vx.edges.some(e => s.roads[e] && s.roads[e].owner === pid);
   }
@@ -173,6 +178,7 @@
     if (kind === 'ship') {
       if (!MODES[s.mode].ships || !ed.sea) return false;
       if (s.pirate !== null && ed.hexes.includes(s.pirate)) return false;
+      if (s.sf && !C.SF.routeOk(s, pid, e, kind, setupVertex)) return false;
     }
     if (setupVertex !== undefined && setupVertex !== null) return ed.v.includes(setupVertex);
     return edgeConnected(s, pid, e, kind);
@@ -191,13 +197,15 @@
   function isShipOpen(s, pid, e) {
     const r = s.roads[e];
     if (!r || r.owner !== pid || r.type !== 'ship') return false;
-    return s.board.edges[e].v.some(v => !ownsAt(s, pid, v) &&
+    return s.board.edges[e].v.some(v => !ownsAt(s, pid, v) && !(s.sf && C.SF.anchor(s, pid, v)) &&
       !s.board.vertices[v].edges.some(o => o !== e && s.roads[o] && s.roads[o].owner === pid && s.roads[o].type === 'ship'));
   }
   function movableShips(s, pid) {
-    if (!MODES[s.mode].ships || s.shipMoved || s.phase !== 'main' || s.current !== pid) return [];
-    return Object.keys(s.roads).map(Number).filter(e => isShipOpen(s, pid, e) && s.roads[e].turn !== s.turn &&
+    if (!MODES[s.mode].ships || s.shipMoved || s.phase !== 'main' || s.current !== pid || (s.sf && s.sf.noShipMove)) return [];
+    const list = Object.keys(s.roads).map(Number).filter(e => isShipOpen(s, pid, e) && s.roads[e].turn !== s.turn &&
       !(s.pirate !== null && s.board.edges[e].hexes.includes(s.pirate)));
+    // Las islas piratas: solo si la ruta tiene otro lado igual de corto donde ponerlo
+    return s.sf && s.sf.routes ? list.filter(e => shipTargets(s, pid, e).length) : list;
   }
   function shipTargets(s, pid, from) {
     const saved = s.roads[from];
@@ -227,6 +235,7 @@
     if ((isCK(s) && !s.ck.attacks) || isPE(s)) return out;
     if (s.tb) { const r = C.TB.robberHexes(s, pid); if (r) return r; }
     for (const h of s.board.hexes) {
+      if (h.hidden || h.frame) continue;
       if (isLand(h.terrain)) {
         if (h.id === s.robber) continue;
         if (s.friendlyRobber && h.vertices.some(v => s.buildings[v] && s.buildings[v].owner !== pid && publicVP(s, s.buildings[v].owner) <= 2)) continue;
@@ -235,7 +244,7 @@
         out.push(h.id);
       }
     }
-    return out;
+    return s.sf ? C.SF.robberFilter(s, pid, out) : out;
   }
 
   function stealCandidates(s, pid, hexId) {
@@ -246,7 +255,7 @@
     } else {
       h.edges.forEach(e => { if (s.roads[e] && s.roads[e].owner !== pid && s.roads[e].type === 'ship') set.add(s.roads[e].owner); });
     }
-    return [...set].filter(p => !s.players[p].neutral && (s.players[p].resources ? total(s.players[p].resources) : s.players[p].resCount) > 0 && !(s.friendlyRobber && publicVP(s, p) <= 2));
+    return [...set].filter(p => !s.players[p].neutral && ((s.players[p].resources ? total(s.players[p].resources) : s.players[p].resCount) > 0 || (s.sf && !isLand(h.terrain) && s.players[p].cloth > 0)) && !(s.friendlyRobber && publicVP(s, p) <= 2));
   }
 
   // ---------- puntos ----------
@@ -255,10 +264,11 @@
     for (const b of Object.values(s.buildings)) if (b.owner === pid) vp += b.type === 'city' || b.type === 'harbor' ? 2 : 1;
     if (s.longestRoad === pid) vp += 2;
     if (s.largestArmy === pid) vp += 2;
-    vp += 2 * s.players[pid].islands.length;
+    if (!s.sf) vp += 2 * s.players[pid].islands.length;
     if (isCK(s)) vp += C.CK.extraVP(s, pid);
     if (isPE(s)) vp += C.PE.extraVP(s, pid);
     if (s.tb) vp += C.TB.extraVP(s, pid);
+    if (s.sf) vp += C.SF.extraVP(s, pid);
     return vp;
   }
   function totalVP(s, pid) {
@@ -293,7 +303,7 @@
   }
 
   function updateLongestRoad(s) {
-    if (isPE(s) || (s.tb && s.tb.noLongestRoad)) return; // sin Gran Ruta Comercial
+    if (isPE(s) || (s.tb && s.tb.noLongestRoad) || (s.sf && s.sf.noLongestRoad)) return; // sin Gran Ruta Comercial
     const lens = s.players.map(p => longestRouteFor(s, p.id));
     s.players.forEach((p, i) => { p.routeLength = lens[i]; });
     const max = Math.max(...lens);
@@ -312,7 +322,7 @@
 
   function updateLargestArmy(s, pid) {
     const k = s.players[pid].knights;
-    if (k < 3) return;
+    if (k < 3 || (s.sf && s.sf.noArmy)) return;
     const cur = s.largestArmy;
     if (cur === pid) return;
     if (cur === null || k > s.players[cur].knights) {
@@ -323,7 +333,7 @@
 
   function checkWin(s, pid) {
     if (s.winner !== null || pid !== s.current || s.players[pid].neutral) return;
-    if (totalVP(s, pid) >= (s.tb ? C.TB.target(s, pid) : s.vpTarget)) {
+    if (s.sf ? C.SF.winCheck(s, pid) : totalVP(s, pid) >= (s.tb ? C.TB.target(s, pid) : s.vpTarget)) {
       s.winner = pid;
       s.phase = 'ended';
       log(s, '¡' + s.players[pid].name + ' gana la partida con ' + totalVP(s, pid) + ' puntos!', pid);
@@ -366,6 +376,7 @@
     Object.entries(got).forEach(([o, r]) => log(s, s.players[o].name + ' recibe ' + resText(r) + '.', +o));
     event(s, { type: 'produce', got });
     if (s.tb) C.TB.afterProduce(s, roll);
+    if (s.sf) C.SF.afterProduce(s, roll);
     return gold;
   }
 
@@ -379,7 +390,7 @@
     s.pendingGold = pend;
     s.goldReturn = ret;
     s.phase = 'gold';
-    log(s, 'Río de oro: ' + Object.keys(pend).map(p => s.players[p].name).join(', ') + ' eligen recursos.');
+    log(s, ((s.sf && s.sf.goldWhy) || 'Río de oro') + ': ' + Object.keys(pend).map(p => s.players[p].name).join(', ') + ' elige(n) recursos.');
     return true;
   }
 
@@ -395,6 +406,7 @@
     if (isCK(s)) C.CK.onTurnStart(s);
     if (isPE(s)) C.PE.onTurnStart(s);
     if (s.tb) C.TB.onTurnStart(s);
+    if (s.sf) C.SF.onTurnStart(s);
     log(s, 'Turno de ' + s.players[s.current].name + '.', s.current);
     checkWin(s, s.current);
   }
@@ -439,6 +451,10 @@
 
     if (s.tb) {
       const h = C.TB.handle(s, pid, a);
+      if (h) return h.result;
+    }
+    if (s.sf) {
+      const h = C.SF.handle(s, pid, a);
       if (h) return h.result;
     }
 
@@ -501,7 +517,8 @@
       log(s, s.players[pid].name + (asCity ? ' coloca una ciudad.' : ' coloca un poblado.'), pid);
       event(s, { type: 'build', what: asCity ? 'city' : 'settlement', pid, at: a.vertex });
       if (s.tb) C.TB.afterSetupSettlement(s, pid, a.vertex);
-      if (st.index >= st.order.length / 2) {
+      if (s.sf) C.SF.afterSettlement(s, pid, a.vertex, true);
+      if (st.index >= (st.resFrom !== undefined ? st.resFrom : st.order.length / 2)) {
         // segundo poblado: recursos iniciales
         const gold = {};
         const got = emptyRes();
@@ -524,6 +541,7 @@
     event(s, { type: 'build', what: kind, pid, at: a.edge });
     if (s.tb) C.TB.afterSetupRoad(s, pid, a.edge);
     st.index++;
+    if (s.sf) C.SF.afterRoute(s, pid, kind, a.edge, { setup: true });
     st.step = 'settlement';
     st.vertex = null;
     if (st.index >= st.order.length) {
@@ -534,7 +552,8 @@
       log(s, 'Fase de colocación terminada. Turno de ' + s.players[s.current].name + '.', s.current);
       if (s.tb) C.TB.afterSetup(s);
     } else {
-      if (st.index === st.order.length / 2) st.round = 2;
+      if (st.resFrom !== undefined) st.round = 1 + Math.floor(st.index / s.players.length);
+      else if (st.index === st.order.length / 2) st.round = 2;
       s.current = st.order[st.index];
     }
   }
@@ -548,21 +567,28 @@
     const sum = d1 + d2;
     log(s, s.players[pid].name + ' tira ' + sum + ' (' + d1 + '+' + d2 + ').', pid);
     event(s, { type: 'roll', dice: [d1, d2], pid });
+    const bonus = s.sf ? C.SF.onRoll(s, pid, d1, d2) : null;
     if (sum === 7) {
       const pend = {};
       s.players.forEach(p => { const t = total(p.resources); if (t > 7) pend[p.id] = Math.floor(t / 2); });
       s.robberReturn = 'main';
+      // Las islas piratas: no hay ladrón; quien tira roba una carta a quien elija
+      const next = s.sf && s.sf.scenario === 7 ? (C.SF.stealVictims(s, pid).length ? 'sfSteal' : 'main') : 'robber';
       if (Object.keys(pend).length) {
         s.pendingDiscard = pend;
         s.phase = 'discard';
+        if (next !== 'robber') s.discardReturn = next;
         log(s, 'Deben descartar: ' + Object.keys(pend).map(p => s.players[p].name + ' (' + pend[p] + ')').join(', ') + '.');
       } else {
-        s.phase = 'robber';
+        s.phase = next;
       }
+      if (bonus) startGold(s, { [pid]: bonus }, s.phase);
       return;
     }
     const gold = produce(s, sum);
+    if (bonus) gold[pid] = (gold[pid] || 0) + bonus;
     s.phase = 'main';
+    if (s.winner !== null) { s.phase = 'ended'; return; }
     startGold(s, gold, 'main');
   }
 
@@ -587,7 +613,7 @@
     addRes(s.players[pid].resources, r, 1);
     addRes(s.bank, r, -1);
     delete s.pendingGold[pid];
-    log(s, s.players[pid].name + ' toma del oro: ' + resText(r) + '.', pid);
+    log(s, s.players[pid].name + (s.sf && s.sf.goldWhy ? ' elige: ' : ' toma del oro: ') + resText(r) + '.', pid);
     if (!Object.keys(s.pendingGold).length) {
       s.phase = s.goldReturn === 'setup' ? 'setup' : s.goldReturn;
       s.goldReturn = null;
@@ -607,13 +633,21 @@
       let victim = a.victim;
       if (!cands.includes(victim)) victim = cands[0];
       const v = s.players[victim];
-      const pool = [];
-      KEYS.forEach(k => { for (let i = 0; i < (v.resources[k] || 0); i++) pool.push(k); });
-      const card = pool[Math.floor(Math.random() * pool.length)];
-      v.resources[card]--;
-      s.players[pid].resources[card] = (s.players[pid].resources[card] || 0) + 1;
-      log(s, s.players[pid].name + ' roba una carta a ' + v.name + '.', pid);
-      event(s, { type: 'steal', from: victim, to: pid, res: card });
+      if (s.sf && pirate && v.cloth > 0 && (a.cloth || !total(v.resources))) {
+        // Tela para Catan: el pirata puede robar una tela en lugar de un recurso
+        v.cloth--;
+        s.players[pid].cloth++;
+        log(s, s.players[pid].name + ' roba una tela a ' + v.name + '.', pid);
+        event(s, { type: 'steal', from: victim, to: pid, res: 'cloth' });
+      } else {
+        const pool = [];
+        KEYS.forEach(k => { for (let i = 0; i < (v.resources[k] || 0); i++) pool.push(k); });
+        const card = pool[Math.floor(Math.random() * pool.length)];
+        v.resources[card]--;
+        s.players[pid].resources[card] = (s.players[pid].resources[card] || 0) + 1;
+        log(s, s.players[pid].name + ' roba una carta a ' + v.name + '.', pid);
+        event(s, { type: 'steal', from: victim, to: pid, res: card });
+      }
     }
     s.phase = s.robberReturn || 'main';
     s.robberReturn = null;
@@ -639,6 +673,7 @@
         const canMore = (P.pieces.road > 0 && validRoutes(s, pid, 'road').length) || (P.pieces.ship > 0 && validRoutes(s, pid, 'ship').length);
         if (s.freeRoads <= 0 || !canMore) { s.freeRoads = 0; s.phase = s.roadReturn; s.roadReturn = null; }
       }
+      if (s.sf) C.SF.afterRoute(s, pid, kind, a.edge);
     } else if (a.type === 'buildSettlement') {
       if (P.pieces.settlement <= 0) return err('No te quedan poblados');
       if (!hasRes(P.resources, COST.settlement)) return err('Recursos insuficientes');
@@ -649,7 +684,8 @@
       log(s, P.name + ' construye un poblado.', pid);
       event(s, { type: 'build', what: 'settlement', pid, at: a.vertex });
       // bonificación de isla (Navegantes)
-      if (MODES[s.mode].ships) {
+      if (s.sf) C.SF.afterSettlement(s, pid, a.vertex, false);
+      else if (MODES[s.mode].ships) {
         const isl = s.board.vertices[a.vertex].hexes.map(h => hexOf(s, h).island).find(i => i >= 0);
         if (isl !== undefined && !s.board.homeIslands.includes(isl) && !P.islands.includes(isl)) {
           P.islands.push(isl);
@@ -691,16 +727,19 @@
     const r = s.roads[a.from];
     delete s.roads[a.from];
     s.roads[a.to] = { owner: pid, type: 'ship', turn: s.turn };
+    if (r.war) s.roads[a.to].war = true;
     s.shipMoved = true;
     log(s, s.players[pid].name + ' mueve un barco.', pid);
+    if (s.sf) C.SF.afterRoute(s, pid, 'ship', a.to, { moved: true });
     updateLongestRoad(s);
     checkWin(s, pid);
   }
 
   function playableDev(s, pid) {
     if (s.devPlayed || s.current !== pid || !['roll', 'main', 'tbMove'].includes(s.phase)) return [];
-    return s.players[pid].devCards.filter(c => c.type !== 'vp' && c.turn !== s.turn && (s.phase !== 'tbMove' || c.type === 'swiftJourney') &&
+    const list = s.players[pid].devCards.filter(c => c.type !== 'vp' && c.turn !== s.turn && (s.phase !== 'tbMove' || c.type === 'swiftJourney') &&
       !(c.type === 'swiftJourney' && s.phase === 'roll')).map(c => c.type);
+    return s.sf ? C.SF.filterDev(s, pid, list) : list;
   }
 
   function doPlayDev(s, pid, a) {
@@ -708,6 +747,7 @@
     if (s.devPlayed) return err('Ya jugaste una carta este turno');
     const idx = P.devCards.findIndex(c => c.type === a.card && c.type !== 'vp' && c.turn !== s.turn);
     if (idx < 0) return err('No puedes jugar esa carta');
+    if (s.sf && !C.SF.filterDev(s, pid, [a.card]).length) return err('No tienes barcos para convertir en barcos de guerra');
     if (a.card === 'yearOfPlenty') {
       const r = a.resources || {};
       if (total(r) !== 2 || RES.some(k => (r[k] || 0) < 0)) return err('Elige 2 recursos');
@@ -719,7 +759,9 @@
     log(s, P.name + ' juega ' + DEV_NAME[a.card] + '.', pid);
     event(s, { type: 'playDev', card: a.card, pid });
     const ret = s.phase;
-    if (a.card === 'knight') {
+    if (a.card === 'knight' && s.sf && C.SF.knight(s, pid)) {
+      P.knights++;
+    } else if (a.card === 'knight') {
       P.knights++;
       updateLargestArmy(s, pid);
       s.robberReturn = ret;
@@ -760,10 +802,23 @@
     log(s, P.name + ' cambia ' + cost + ' ' + RES_NAME[a.give] + ' por ' + n + ' ' + RES_NAME[a.get] + ' con el banco.', pid);
   }
 
+  // En Piratas y Exploradores el oro se comercia entre jugadores como una carta más
+  const tradeKeys = s => isPE(s) ? KEYS.concat('gold') : KEYS;
+  const tradeHand = (s, pid) => isPE(s) ? Object.assign({}, s.players[pid].resources, { gold: s.players[pid].gold }) : s.players[pid].resources;
+  const hasTrade = (s, pid, need) => tradeKeys(s).every(k => (tradeHand(s, pid)[k] || 0) >= (need[k] || 0));
+  const tradeTotal = (s, r) => tradeKeys(s).reduce((a, k) => a + (r[k] || 0), 0);
+  function moveTrade(s, from, to, r) {
+    addRes(s.players[from].resources, r, -1); addRes(s.players[to].resources, r, 1);
+    if (r.gold) { s.players[from].gold -= r.gold; s.players[to].gold += r.gold; }
+  }
+
   function doOfferTrade(s, pid, a) {
+    const keys = tradeKeys(s);
     const give = Object.assign(emptyRes(), a.give), get = Object.assign(emptyRes(), a.get);
-    if (KEYS.some(k => (give[k] || 0) < 0 || (get[k] || 0) < 0) || !total(give) || !total(get)) return err('Oferta inválida');
-    if (!hasRes(s.players[pid].resources, give)) return err('No tienes esas cartas');
+    if (Object.keys(give).concat(Object.keys(get)).some(k => !keys.includes(k) && ((give[k] || 0) || (get[k] || 0)))) return err('Oferta inválida');
+    if (keys.some(k => (give[k] || 0) < 0 || (get[k] || 0) < 0) || !tradeTotal(s, give) || !tradeTotal(s, get)) return err('Oferta inválida');
+    if (keys.some(k => give[k] && get[k])) return err('No puedes dar y pedir lo mismo');
+    if (!hasTrade(s, pid, give)) return err('No tienes esas cartas');
     s.trade = { id: ++s.tradeSeq, from: pid, give, get, responses: {}, to: a.to === undefined ? null : a.to };
     log(s, s.players[pid].name + ' ofrece ' + resText(give) + ' por ' + resText(get) + '.', pid);
   }
@@ -773,7 +828,7 @@
     if (!t || pid === t.from || s.phase !== 'main' || s.players[pid].neutral) return err('No hay oferta');
     if (t.to !== null && t.to !== pid) return err('La oferta no es para ti');
     if (a.id !== undefined && a.id !== t.id) return err('Oferta expirada');
-    if (a.accept && !hasRes(s.players[pid].resources, t.get)) return err('No tienes esas cartas');
+    if (a.accept && !hasTrade(s, pid, t.get)) return err('No tienes esas cartas');
     t.responses[pid] = a.accept ? 'accept' : 'reject';
   }
 
@@ -783,9 +838,9 @@
     const o = a.with;
     if (t.responses[o] !== 'accept') return err('Ese jugador no aceptó');
     const A = s.players[pid], B = s.players[o];
-    if (!hasRes(A.resources, t.give) || !hasRes(B.resources, t.get)) { s.trade = null; return err('Ya no tienen las cartas'); }
-    addRes(A.resources, t.give, -1); addRes(B.resources, t.give, 1);
-    addRes(B.resources, t.get, -1); addRes(A.resources, t.get, 1);
+    if (!hasTrade(s, pid, t.give) || !hasTrade(s, o, t.get)) { s.trade = null; return err('Ya no tienen las cartas'); }
+    moveTrade(s, pid, o, t.give);
+    moveTrade(s, o, pid, t.get);
     log(s, A.name + ' comercia con ' + B.name + ': ' + resText(t.give) + ' por ' + resText(t.get) + '.', pid);
     event(s, { type: 'trade', a: pid, b: o });
     s.trade = null;
@@ -852,6 +907,7 @@
     if (isCK(s)) C.CK.redact(s, v, pid);
     if (isPE(s)) C.PE.redact(s, v, pid);
     if (s.tb) C.TB.redact(s, v, pid);
+    if (s.sf) C.SF.redact(s, v, pid);
     v.me = pid;
     return v;
   }

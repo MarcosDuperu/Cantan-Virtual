@@ -140,10 +140,17 @@
   function spiralNumbers(board, sequence) {
     const land = board.hexes.filter(h => isLand(h.terrain));
     const cx = land.reduce((a, h) => a + h.x, 0) / land.length, cy = land.reduce((a, h) => a + h.y, 0) / land.length;
-    const dist = h => Math.round(Math.hypot(h.x - cx, h.y - cy) / Math.sqrt(3));
+    // anillos: el exterior toca el mar; cada anillo interior toca al anterior
+    const ringOf = new Map();
+    let frontier = land.filter(h => neighborsOf(board, h).some(n => !isLand(n.terrain)));
+    for (let d = 0; frontier.length; d++) {
+      frontier.forEach(h => ringOf.set(h.id, d));
+      frontier = land.filter(h => !ringOf.has(h.id) && neighborsOf(board, h).some(n => ringOf.get(n.id) === d));
+    }
+    const maxD = Math.max(...ringOf.values());
+    const dist = h => maxD - ringOf.get(h.id);
     const ang = h => Math.atan2(h.y - cy, h.x - cx);
     const landN = h => neighborsOf(board, h).filter(n => isLand(n.terrain)).length;
-    const maxD = Math.max(...land.map(dist));
     const corners = shuffle(land.filter(h => dist(h) === maxD && landN(h) === 3));
     // antihorario en pantalla (y hacia abajo): ángulos decrecientes
     const ccw = (from, a) => { let d = from - a; while (d < 0) d += 2 * Math.PI; while (d >= 2 * Math.PI) d -= 2 * Math.PI; return d; };
@@ -208,6 +215,34 @@
   const EXT_TERRAINS = BASE_TERRAINS.concat(['forest', 'forest', 'pasture', 'pasture', 'fields', 'fields', 'hills', 'hills', 'mountains', 'mountains', 'desert']);
   const EXT_TOKENS = [2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 8, 8, 8, 9, 9, 9, 10, 10, 10, 11, 11, 11, 12, 12];
   const EXT_PORTS = ['any', 'any', 'any', 'any', 'any', 'wood', 'brick', 'sheep', 'sheep', 'wheat', 'ore'];
+  // Ampliación 5-6 (reglamento 2022): fichas A…Y, ZA, ZB, ZC (leídas del tablero de ejemplo, en el orden de la espiral)
+  const EXT_SPIRAL_TOKENS = [6, 10, 6, 3, 12, 8, 9, 12, 8, 5, 11, 8, 4, 11, 9, 2, 11, 5, 10, 3, 9, 4, 3, 10, 5, 4, 2, 6];
+  // Lugares de puerto del marco: [tipo fijo o null, fila, posición en la fila, lado], filas desde arriba y posiciones desde la izquierda.
+  // Leídos de los tableros de ejemplo de los reglamentos (3-4: 2020; 5-6: 2022). En la preparación variable las 9 piezas de puerto
+  // del juego básico se reparten al azar sobre esos lugares; los 2 puertos impresos en los marcos pequeños del 5-6 son fijos.
+  const BASE_FRAME_PORTS = [[null, 0, 0, 'NW'], [null, 0, 1, 'NE'], [null, 1, 3, 'NE'], [null, 2, 4, 'E'], [null, 3, 3, 'SE'],
+    [null, 4, 1, 'SE'], [null, 4, 0, 'SW'], [null, 3, 0, 'W'], [null, 1, 0, 'W']];
+  const EXT_FRAME_PORTS = [[null, 0, 0, 'NW'], [null, 0, 1, 'NE'], [null, 0, 2, 'E'], [null, 2, 0, 'W'], [null, 3, 5, 'E'], ['any', 4, 0, 'W'],
+    [null, 5, 0, 'W'], [null, 6, 0, 'SW'], [null, 6, 1, 'SE'], ['sheep', 6, 2, 'E'], [null, 5, 3, 'E']];
+
+  // Coloca los puertos en los lugares del marco. "rows" son los tamaños de las filas de tierra (los primeros hexágonos del tablero);
+  // los lugares sin tipo fijo reciben al azar los tipos de "pool".
+  function framePorts(board, rows, list, pool) {
+    const types = shuffle(pool.slice());
+    const SIDE = { E: 0, SE: 60, SW: 120, W: 180, NW: 240, NE: 300 };
+    const starts = [];
+    rows.reduce((a, n) => { starts.push(a); return a + n; }, 0);
+    board.ports = list.map(([fixed, r, p, side], i) => {
+      const type = fixed || types.pop();
+      const h = board.hexes[starts[r] + p];
+      const a = SIDE[side] * Math.PI / 180;
+      const e = h.edges.map(id => board.edges[id]).find(x => (x.x - h.x) * Math.cos(a) + (x.y - h.y) * Math.sin(a) > 0.8);
+      const seaHex = e.hexes.map(id => board.hexes[id]).find(x => x.terrain === 'sea');
+      board.vertices[e.v[0]].port = type;
+      board.vertices[e.v[1]].port = type;
+      return { id: i, type, edge: e.id, hex: seaHex.id };
+    });
+  }
 
   function finishLand(list, terrains, tokens) {
     const t = shuffle(terrains.slice());
@@ -221,7 +256,7 @@
     const board = buildGraph(addSeaRing(land));
     const ids = board.hexes.filter(h => isLand(h.terrain) && h.terrain !== 'desert').map(h => h.id);
     if (!spiralNumbers(board, SPIRAL_TOKENS)) assignNumbers(board, ids, BASE_TOKENS);
-    placePorts(board, BASE_PORTS);
+    framePorts(board, [3, 4, 5, 4, 3], BASE_FRAME_PORTS, BASE_PORTS);
     board.robber = board.hexes.find(h => h.terrain === 'desert').id;
     board.pirate = null;
     board.homeIslands = [0];
@@ -233,44 +268,11 @@
     finishLand(land, EXT_TERRAINS);
     const board = buildGraph(addSeaRing(land));
     const ids = board.hexes.filter(h => isLand(h.terrain) && h.terrain !== 'desert').map(h => h.id);
-    assignNumbers(board, ids, EXT_TOKENS);
-    placePorts(board, EXT_PORTS);
+    if (!spiralNumbers(board, EXT_SPIRAL_TOKENS)) assignNumbers(board, ids, EXT_TOKENS);
+    framePorts(board, [3, 4, 5, 6, 5, 4, 3], EXT_FRAME_PORTS, BASE_PORTS);
     board.robber = board.hexes.find(h => h.terrain === 'desert').id;
     board.pirate = null;
     board.homeIslands = [0];
-    return board;
-  }
-
-  // Navegantes: "Hacia nuevas costas" (adaptado). x = isla principal, y = islas exteriores
-  const SEAFARERS_ROWS = [
-    '. . . . . . . .',
-    '. x x x . . y y .',
-    '. x x x x . . y . .',
-    '. x x x x x . . . y .',
-    '. x x x x . y . y .',
-    '. x x x . y y . .',
-    '. . . . . . . .'
-  ];
-  function generateSeafarers() {
-    const all = rowsToHexes(SEAFARERS_ROWS);
-    const main = all.filter(h => h.token === 'x');
-    const outer = all.filter(h => h.token === 'y');
-    finishLand(main, BASE_TERRAINS);
-    finishLand(outer, ['gold', 'gold', 'forest', 'hills', 'pasture', 'fields', 'mountains', 'mountains']);
-    all.filter(h => h.token === '.').forEach(h => { h.terrain = 'sea'; });
-    const board = buildGraph(all);
-    const mainIsland = board.hexes.find(h => h.terrain !== 'sea' && main.some(m => m.q === h.q && m.r === h.r)).island;
-    const mainIds = board.hexes.filter(h => h.island === mainIsland && h.terrain !== 'desert').map(h => h.id);
-    assignNumbers(board, mainIds, BASE_TOKENS);
-    const outerIds = board.hexes.filter(h => h.island >= 0 && h.island !== mainIsland).map(h => h.id);
-    assignNumbers(board, outerIds, [3, 4, 5, 6, 8, 9, 10, 11]);
-    placePorts(board, BASE_PORTS, mainIsland);
-    board.robber = board.hexes.find(h => h.terrain === 'desert').id;
-    // pirata: hexágono de mar más céntrico entre islas
-    const seas = board.hexes.filter(h => h.terrain === 'sea' && neighborsOf(board, h).length === 6);
-    seas.sort((a, b) => Math.abs(a.x - 1) + Math.abs(a.y) - (Math.abs(b.x - 1) + Math.abs(b.y)));
-    board.pirate = seas[0].id;
-    board.homeIslands = [mainIsland];
     return board;
   }
 
@@ -285,24 +287,23 @@
       4: [{ t: 6, sea: 1, fish: 3, spice: 3 }, { t: 6, sea: 1, fish: 3, spice: 3 }],
       5: [{ t: 6, sea: 1, fish: 3, spice: 3, lair: 3 }, { t: 6, sea: 1, fish: 3, spice: 3, lair: 3 }]
     },
-    big: { // ampliación 5-6 (el escenario 1 no es oficial para 5-6: se deduce del 2 sin guaridas)
-      1: [{ t: 9, sea: 1 }, { t: 9, sea: 1 }],
+    big: { // ampliación 5-6 (el escenario 1 no es oficial para 5-6: tablero del 2 con mar en lugar de guaridas)
+      1: [{ t: 9, sea: 5 }, { t: 9, sea: 5 }],
       2: [{ t: 9, sea: 1, lair: 4 }, { t: 9, sea: 1, lair: 4 }],
       3: [{ t: 9, lair: 4, fish: 3 }, { t: 9, lair: 4, fish: 3 }],
       4: [{ t: 9, sea: 1, fish: 3, spice: 3 }, { t: 9, sea: 1, fish: 3, spice: 3 }],
       5: [{ t: 9, sea: 1, fish: 3, spice: 3, lair: 4 }, { t: 9, sea: 1, fish: 3, spice: 3, lair: 4 }]
     }
   };
-  // Terrenos y fichas de cada área. Los 6 primeros de cada lista son las losetas estándar (su tipo exacto
-  // no figura en el texto del reglamento); los 3 últimos, las de la ampliación 5-6 (oficiales).
+  // Terrenos de cada área. Los 6 primeros de cada lista son las losetas estándar (leídas de «Hexágonos de este
+  // escenario» del reglamento 2020); los 3 últimos, las de la ampliación 5-6.
   const PE_AREA_TERRAINS = [
-    ['forest', 'pasture', 'fields', 'fields', 'hills', 'mountains', 'mountains', 'forest', 'fields'],
-    ['forest', 'pasture', 'pasture', 'fields', 'hills', 'mountains', 'mountains', 'pasture', 'hills']
+    ['mountains', 'mountains', 'forest', 'pasture', 'fields', 'hills', 'mountains', 'forest', 'fields'],
+    ['mountains', 'forest', 'pasture', 'fields', 'fields', 'hills', 'mountains', 'pasture', 'hills']
   ];
   const PE_AREA_TOKENS = [[4, 5, 6, 8, 9, 11, 2, 5, 9], [3, 5, 6, 8, 10, 12, 3, 4, 10]];
   const PE_LAIR_TOKENS = [4, 5, 6, 8, 10, 11, 9, 10];
   const PE_BENEFITS = ['fastTravel', 'pirate', 'fastGold'];
-  const hexDist = (a, b) => (Math.abs(a.q - b.q) + Math.abs(a.r - b.r) + Math.abs(a.q + a.r - b.q - b.r)) / 2;
 
   // Recalcula qué vértices y aristas tocan tierra o mar visibles (los hexágonos ocultos no cuentan)
   function refreshFlags(board) {
@@ -314,46 +315,104 @@
     });
   }
 
-  // Mapa: isla inicial al oeste, Consejo de Catan pegado a su costa este y, más al este, las áreas
-  // inexploradas norte y sur separadas por un canal de mar. Todo rodeado por dos anillos de mar
-  // (el exterior es el marco, donde no puede ir el barco pirata).
-  function generateExplorers(opt, big) {
-    const sc = PE_AREAS.small[opt && opt.scenario] ? +opt.scenario : 2;
-    const start = [];
-    for (let q = -2; q <= 2; q++) for (let r = -2; r <= 2; r++) if (Math.abs(q + r) <= 2) start.push({ q, r });
-    if (big) start.push({ q: -3, r: 1 }, { q: -3, r: 2 });
-    const startTerr = (big ? BASE_TERRAINS.concat(['fields', 'pasture']) : BASE_TERRAINS.slice());
-    const startTok = big ? BASE_TOKENS.concat([5, 9]) : BASE_TOKENS.slice();
-    shuffle(startTerr);
-    start.forEach((h, i) => { h.terrain = startTerr[i]; h.token = 'x'; });
-    const council = { q: 3, r: 0, terrain: sc >= 3 ? 'council' : 'sea', token: 'C' };
+  // Tableros oficiales 3-4 (ilustraciones de los ejemplos 2, 10, 13, 15 y 17 del reglamento 2020), en filas de hexágonos
+  // de punta de arriba abajo: L isla inicial, s mar, C Consejo de Catan, G área norte (luna verde), O área sur (sol naranja).
+  // Alrededor va el marco (un anillo de mar donde no puede ir el pirata ni se navega entre dos piezas del marco).
+  const PE_MAPS = {
+    1: ['L L s s G G', 'L L s s G G G', 'L L s s G s G G', 'L L L s s s s s s', 'L L s s O s O O', 'L L s s O O O', 'L L s s O O'],
+    2: ['L L s s G G G', 'L L s s G G G G', 'L L s s G G s G G', 'L L L s s s s s s s', 'L L s s O O s O O', 'L L s s O O O O', 'L L s s O O O'],
+    3: ['L L s s G G G', 'L L s s G G G G', 'L L s s G G s G G', 'L L L C s s s s s s', 'L L s s O O s O O', 'L L s s O O O O', 'L L s s O O O'],
+    4: ['L L s s G G G G', 'L L s s G G G G G', 'L L s s G G s G s G', 'L L L C s s s s s s s', 'L L s s O O s O s O', 'L L s s O O O O O', 'L L s s O O O O'],
+    5: ['L L s s G G G G G', 'L L s s G G G G G G', 'L L s s G G s G s G G', 'L L L C s s s s s s s s', 'L L s s O O s O s O O', 'L L s s O O O O O O', 'L L s s O O O O O']
+  };
+  // Tableros oficiales 5-6 (ejemplos 1-4 del reglamento 5-6 de 2022/2023); el escenario 4 usa el mismo tablero que el 3.
+  const PE_MAPS56 = {
+    2: ['L L s s G s G', 'L L s s G G G G', 'L L s s G G G G G', 'L L L s s G s G s G', 'L L L L s s s s s s s',
+      'L L L s s O s O s O', 'L L s s O O O O O', 'L L s s O O O O', 'L L s s O s O'],
+    3: ['L L s s G s G G', 'L L s s G G G G G', 'L L s s G G G s s G', 'L L L s s G s G G s G', 'L L L L C s s s s s s s',
+      'L L L s s O s O O s O', 'L L s s O O O s s O', 'L L s s O O O O O', 'L L s s O s O O'],
+    5: ['L L s s G s G s G', 'L L s s G G G G G G', 'L L s s G G G G G G G', 'L L L s s G s G s G s G', 'L L L L C s s s s s s s s',
+      'L L L s s O s O s O s O', 'L L s s O O O O O O O', 'L L s s O O O O O O', 'L L s s O s O s O']
+  };
+  PE_MAPS56[1] = PE_MAPS56[2];
+  PE_MAPS56[4] = PE_MAPS56[3];
+  // Isla inicial 5-6: 22 hexágonos (los 15 del 3-4 y 2 pastos, 2 montañas, bosque, campo y colina de la ampliación 5-6),
+  // terrenos al azar y fichas fijas (el texto dice «21 hexágonos», pero el dibujo y las 22 fichas muestran 22)
+  const PE_ISLAND_TOKENS56 = [2, 9, 11, 8, 4, 10, 10, 3, 8, 6, 5, 4, 5, 3, 10, 6, 8, 4, 11, 6, 12, 9];
+  const PE_ISLAND_TERRAINS56 = 'm f w p h p p m f w p f h m f p p m m f w h';
+  // Isla inicial (15 hexágonos): fichas fijas en todos los escenarios; terrenos fijos en los escenarios 1 y 2 (al azar en 3-5).
+  const PE_ISLAND_TOKENS = [11, 9, 3, 8, 4, 10, 6, 12, 8, 10, 4, 11, 6, 3, 5];
+  const PE_ISLAND_TERRAINS = {
+    1: 'm f w p h p p m f w p f h m f',
+    2: 'p f w p h m p m f w p f m h f'
+  };
+  const T1 = { f: 'forest', h: 'hills', p: 'pasture', w: 'fields', m: 'mountains' };
+  // Escenario 1: colocación fija (ejemplo 2). Por color: poblado, carretera, poblado portuario y barco con colono,
+  // dados como [fila, posición en la fila de la isla, esquina o lado]. Esquinas: N NE SE S SW NW; lados: NE E SE SW W NW.
+  const PE_FIXED_STARTS = [
+    { settle: [5, 0, 'SE'], road: [5, 1, 'SW'], harbor: [0, 1, 'S'], ship: [0, 1, 'SE'] }, // rojo
+    { settle: [0, 0, 'S'], road: [0, 0, 'SE'], harbor: [5, 1, 'SE'], ship: [6, 1, 'NE'] }, // azul
+    { settle: [3, 0, 'SE'], road: [3, 1, 'SW'], harbor: [3, 2, 'S'], ship: [3, 2, 'SE'] }, // blanco
+    { settle: [2, 0, 'SW'], road: [2, 0, 'SW'], harbor: [2, 1, 'SE'], ship: [3, 2, 'NE'] } // naranja
+  ];
+  const CORNER = { NE: -30, SE: 30, S: 90, SW: 150, NW: 210, N: 270 };
+  const SIDEA = { E: 0, SE: 60, SW: 120, W: 180, NW: 240, NE: 300 };
+  function nearestId(list, x, y) {
+    let best = null, bd = Infinity;
+    list.forEach(o => { const d = Math.hypot(o.x - x, o.y - y); if (d < bd) { bd = d; best = o.id; } });
+    return best;
+  }
+  const cornerOf = (b, h, c) => { const a = CORNER[c] * Math.PI / 180; return nearestId(b.vertices, h.x + Math.cos(a), h.y + Math.sin(a)); };
+  const sideOf = (b, h, c) => { const a = SIDEA[c] * Math.PI / 180, d = Math.sqrt(3) / 2; return nearestId(b.edges, h.x + d * Math.cos(a), h.y + d * Math.sin(a)); };
+
+  function officialExplorers(sc, big) {
+    const rows = big ? PE_MAPS56[sc] : PE_MAPS[sc];
+    const cells = rowsToHexes(rows);
     const comp = PE_AREAS[big ? 'big' : 'small'][sc];
-    const taken = new Set(start.concat([council]).map(h => h.q + ',' + h.r));
-    const all = start.concat([council]);
-    // celdas de cada área: las más cercanas a un punto ancla, lejos de la isla inicial
-    [-1, 1].forEach((side, ai) => {
-      const n = Object.values(comp[ai]).reduce((x, y) => x + y, 0);
-      const cands = [];
-      for (let r = side; Math.abs(r) <= 7; r += side) {
-        for (let q = -2 - r; q <= 14; q++) {
-          const k = q + ',' + r;
-          if (taken.has(k) || start.some(h => hexDist(h, { q, r }) < 3)) continue;
-          const c = hexCenter(q, r);
-          cands.push({ q, r, d: Math.hypot(c.x - (big ? 8.2 : 7.2), c.y - side * (big ? 3.4 : 3.0)) });
-        }
-      }
-      cands.sort((x, y) => x.d - y.d);
+    const islandRows = [];
+    let li = 0;
+    const toks = big ? PE_ISLAND_TOKENS56 : PE_ISLAND_TOKENS;
+    const terr = !big && PE_ISLAND_TERRAINS[sc] ? PE_ISLAND_TERRAINS[sc].split(' ').map(k => T1[k])
+      : shuffle((big ? PE_ISLAND_TERRAINS56 : PE_ISLAND_TERRAINS[1]).split(' ').map(k => T1[k]));
+    cells.forEach(h => {
+      if (h.token === 'L') {
+        h.terrain = terr[li]; h.number = toks[li]; h.start = true; li++;
+        const row = Math.round(h.r + (rows.length - 1) / 2);
+        (islandRows[row] || (islandRows[row] = [])).push(h);
+      } else if (h.token === 'C') h.terrain = 'council';
+      else if (h.token === 'G' || h.token === 'O') { h.area = h.token === 'G' ? 0 : 1; h.hid = true; h.terrain = 'sea'; }
+      else h.terrain = 'sea';
+    });
+    [0, 1].forEach(ai => {
       const kinds = [];
       Object.entries(comp[ai]).forEach(([k, c]) => { for (let i = 0; i < c; i++) kinds.push(k); });
-      cands.slice(0, n).forEach(h => { h.token = 'h'; h.area = ai; taken.add(h.q + ',' + h.r); all.push(h); });
-      all.filter(h => h.area === ai).forEach((h, i) => { h.kind = kinds[i]; });
+      const list = cells.filter(h => h.hid && h.area === ai);
+      if (kinds.length !== list.length) throw new Error('Mapa de Piratas: el área ' + ai + ' tiene ' + list.length + ' celdas para ' + kinds.length + ' hexágonos');
+      list.forEach(h => { h.kind = 'x'; });
     });
-    // dos anillos de mar: el interior es navegable y el exterior es el marco
-    let board0 = addSeaRing(all);
-    board0 = addSeaRing(board0);
+    const board0 = addSeaRing(cells);
+    board0.forEach(h => { if (!h.token) h.frameCell = true; });
+    return { board0, islandRows };
+  }
+
+  function generateExplorers(opt, big) {
+    const sc = PE_AREAS.small[opt && opt.scenario] ? +opt.scenario : 2;
+    return finishExplorers(sc, big, officialExplorers(sc, big), opt);
+  }
+
+  // Contenido oculto de las áreas, grafo y datos de la partida (común a los tableros 3-4 y 5-6)
+  function finishExplorers(sc, big, built, opt) {
+    const { board0, islandRows } = built;
+    const comp = PE_AREAS[big ? 'big' : 'small'][sc];
     // reparto del contenido oculto: las guaridas y especias deben tener agua cerca
     const byKey = new Map(board0.map(h => [h.q + ',' + h.r, h]));
-    const hid = board0.filter(h => h.token === 'h');
+    const hid = board0.filter(h => h.hid);
+    // tipos de cada área según el escenario (en el mapa oficial las celdas vienen sin tipo)
+    [0, 1].forEach(ai => {
+      const kinds = [];
+      Object.entries(comp[ai]).forEach(([k, c]) => { for (let i = 0; i < c; i++) kinds.push(k); });
+      hid.filter(h => h.area === ai).forEach((h, i) => { h.kind = kinds[i]; });
+    });
     const water = h => !h || h.terrain === 'sea' || h.kind === 'sea' || h.kind === 'fish' || h.terrain === 'council';
     for (let attempt = 0; attempt < 400; attempt++) {
       [0, 1].forEach(ai => {
@@ -374,12 +433,11 @@
     const board = buildGraph(board0);
     board.hexes.forEach((hx, i) => {
       const src = board0[i];
-      hx.start = src.token === 'x';
-      hx.hidden = src.token === 'h';
+      hx.start = !!src.start;
+      hx.hidden = !!src.hid;
       if (hx.hidden) hx.area = src.area;
       if (src.kind === 'lair') hx.lair = { crews: [] };
     });
-    assignNumbers(board, board.hexes.filter(h => h.start && h.terrain !== 'desert').map(h => h.id), startTok);
     const fishNos = shuffle([1, 2, 3, 4, 5, 6]);
     board.hexes.filter(h => h.terrain === 'fish').forEach((h, i) => { h.fishNo = fishNos[i % 6]; h.fish = 0; });
     // cada área tiene una aldea de cada ventaja; las de bonificación pirata llevan un 4 y un 5
@@ -393,11 +451,25 @@
     });
     board.numberPool = [0, 1].map(ai => shuffle(PE_AREA_TOKENS[ai].slice(0, big ? 9 : 6)));
     board.lairPool = shuffle(PE_LAIR_TOKENS.slice(0, big ? 8 : 6));
-    board.hexes.forEach(h => {
+    board.hexes.forEach((h, i) => {
       const ns = neighborsOf(board, h);
-      h.frame = ns.length < 6;
+      h.frame = !!board0[i].frameCell;
       h.nearStart = !h.start && ns.some(n => n.start);
     });
+    // las aristas entre dos piezas del marco (o en su borde exterior) no son rutas
+    board.edges.forEach(e => { if (e.hexes.every(id => board.hexes[id].frame)) e.offBoard = true; });
+    {
+      const idOf = h => board.hexes.find(x => x.q === h.q && x.r === h.r);
+      const at = ([r, k]) => idOf(islandRows[r][k]);
+      // lugares marcados para los poblados portuarios (escenarios 2-5): las dos esquinas este del último hexágono de cada fila
+      board.harborSites = sc === 1 && !big ? null : islandRows.flatMap(row => { const h = idOf(row[row.length - 1]); return [cornerOf(board, h, 'NE'), cornerOf(board, h, 'SE')]; });
+      if (sc === 1 && !big) {
+        board.fixedStarts = PE_FIXED_STARTS.map(f => ({
+          settle: cornerOf(board, at(f.settle), f.settle[2]), road: sideOf(board, at(f.road), f.road[2]),
+          harbor: cornerOf(board, at(f.harbor), f.harbor[2]), ship: sideOf(board, at(f.ship), f.ship[2])
+        }));
+      }
+    }
     board.homeIslands = [board.hexes.find(h => h.start).island];
     board.robber = null;
     board.pirate = null;
@@ -637,7 +709,7 @@
   function generateBoard(mode, opt) {
     let b;
     if (mode === 'extended') b = generateExtended();
-    else if (mode === 'seafarers') b = generateSeafarers();
+    else if (mode === 'seafarers' || mode === 'seafarers56') b = C.SF.generate(opt, mode === 'seafarers56');
     else if (mode === 'explorers') b = generateExplorers(opt, false);
     else if (mode === 'explorers56') b = generateExplorers(opt, true);
     else if (mode === 'traders') b = generateTraders(opt, false);
@@ -648,4 +720,5 @@
   }
 
   Object.assign(C, { RES, TERRAIN_RES, PIPS, LAND, isLand, shuffle, generateBoard, neighborsOf, hexCenter, refreshFlags, TRADE_HEXES });
+  C._B = { buildGraph, spiralNumbers, EXT_SPIRAL_TOKENS, addSeaRing, assignNumbers, rowsToHexes, EXT_TERRAINS, EXT_TOKENS, BASE_TERRAINS, BASE_TOKENS };
 })(typeof window !== 'undefined' ? window : globalThis);

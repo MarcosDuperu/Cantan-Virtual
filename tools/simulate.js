@@ -5,13 +5,16 @@ require('../src/js/engine/rules.js');
 require('../src/js/engine/ck.js');
 require('../src/js/engine/pe.js');
 require('../src/js/engine/tb.js');
+require('../src/js/engine/sf.js');
 require('../src/js/engine/ai.js');
 require('../src/js/engine/names.js');
 const C = globalThis.Catan;
 
-const mode = process.argv[2] || 'classic';
+const arg = process.argv[2] || 'classic';
 const games = +(process.argv[3] || 20);
-const n = +(process.argv[4] || ((mode === 'extended' || mode === 'cities56' || mode === 'explorers56') ? 6 : 4));
+const n = +(process.argv[4] || ((arg === 'extended' || arg === 'cities56' || arg === 'explorers56' || arg === 'seafarers56') ? 6 : 4));
+// una expansión del menú (classic, seafarers, traders…) usa su modo 5-6 con 5 o más jugadores
+const mode = C.EXPANSIONS[arg] && C.EXPANSIONS[arg].modes[1] && n >= 5 ? C.resolveMode(arg, n) : arg;
 const scenario = +(process.argv[5] || 2);
 const extra = process.argv[6] ? Object.fromEntries(process.argv[6].split(',').map(k => [k, true])) : {};
 let wins = 0, totalTurns = 0, errors = 0, stuck = 0;

@@ -1,0 +1,49 @@
+Esto es lo que queda pendiente (actualizado el 17-11-2026), de lo más grande a lo más chico.
+
+YA HECHO EN ESTA SESIÓN
+- Navegantes completo: mapa oficial de «Hacia nuevas costas» (3 y 4) con sus puertos, escenarios 2 a 9,
+  ampliación 5-6 con jugadores en pareja, interfaz, reglas, IA y tools/test-sf.js.
+- Commit de Piratas y Exploradores (ya estaba en 8a790d3).
+- Mercaderes y Bárbaros completo: menú, reglas en pantalla, estilos, interfaz probada en el navegador
+  (los 5 escenarios, Catan para dos, 5-6 en pareja y LAN con dos pestañas) y tools/test-tb.js (130 casos).
+- Jugadores en pareja (regla 2022) en el Clásico 5-6 y en Ciudades y Caballeros 5-6. La fase de construcción
+  especial queda como opción en el menú.
+- Ciudades y Caballeros: 18 mercancías por tipo en 5-6, el Herrero respeta 1 ascenso por caballero y turno, el
+  Diplomático tiene en cuenta los caballeros.
+- Juego básico: fichas en espiral alfabética (A…R) en el tablero 3-4 y primer jugador por tirada de dados.
+- Navegantes: la IA mueve barcos cuando le conviene.
+- Pruebas nuevas: tools/test-base.js.
+
+1. Detalles de Navegantes
+Navegantes está completo: los 9 escenarios con los mapas oficiales para 3, 4 y 5-6 jugadores (en pareja), dibujados
+con la orientación del reglamento, selector de escenario en el menú, reglas en pantalla y tools/test-sf.js (117 casos).
+Resuelto en esta tanda:
+- «Nuevo mundo»: los jugadores colocan los puertos por turnos antes de los poblados (con interfaz y con la IA).
+- «La tribu olvidada»: el jugador elige dónde va el puerto regalado (la máquina lo coloca sola).
+- «Las islas piratas»: revisado con el reglamento; la flota ataca a quien tiró (como estaba) y ahora se puede mover
+  el barco del extremo de la ruta respetando la ruta más corta.
+- El mapa ya no aparece girado: hexágonos de lado plano con el norte arriba, como en el reglamento.
+- Arreglado de paso: mover un barco desde la interfaz no funcionaba en ningún modo (se enviaba sin el barco de origen),
+  y los puertos nuevos no se dibujaban hasta cambiar el tablero.
+Quedan solo decisiones menores documentadas en docs/navegantes.md («Decisiones propias»).
+
+2. Juego básico: HECHO. Tablero 5-6 con las fichas oficiales A…ZC en espiral (reproduce el ejemplo del reglamento 2022)
+y puertos en los lugares fijos del marco en 3-4 (9) y 5-6 (11), leídos de las ilustraciones de los reglamentos.
+
+3. Ciudades y Caballeros: HECHO. El jugador decide en el Desertor, la Intriga, el desalojo, el Puerto comercial,
+el empate de defensores y la ciudad saqueada (pruebas en tools/test-ck.js, probado en el navegador).
+
+4. Piratas y Exploradores: HECHO.
+- Revisado con el reglamento 2020: captura de guaridas al terminar la fase de movimiento, dado de pesca opcional, oro en el
+  comercio entre jugadores y retirar un barco para construirlo de nuevo.
+- Datos de las ilustraciones transcritos: tableros oficiales de los 5 escenarios (3-4) y de los escenarios 2-5 (5-6), isla
+  inicial con fichas fijas, losetas estándar de cada zona, cruces marcados para portuarios, colocación fija del escenario 1 y
+  pista de misión (1, 1, 2, 2, 2, 3, 3 PV).
+- Queda propio solo lo que el reglamento no muestra: valores de las fichas de las zonas y de las guaridas (boca abajo en los
+  dibujos) y el escenario 1 para 5-6 (el reglamento recomienda no jugarlo).
+
+5. Detalles de Mercaderes y Bárbaros
+Ver docs/mercaderes-y-barbaros.md («Decisiones propias» y «Simplificaciones»).
+
+6. Ediciones
+Todo sigue la 5.ª edición. No se revisaron las diferencias de la 6.ª edición de 2025.

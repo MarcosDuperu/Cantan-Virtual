@@ -1,5 +1,5 @@
 // Pruebas de reglas del juego básico y su ampliación 5-6. Uso: node tools/test-base.js
-['board', 'rules', 'ck', 'pe', 'tb', 'ai', 'names'].forEach(f => require('../src/js/engine/' + f + '.js'));
+['board', 'rules', 'ck', 'pe', 'tb', 'sf', 'ai', 'names'].forEach(f => require('../src/js/engine/' + f + '.js'));
 const C = globalThis.Catan;
 let fails = 0;
 const check = (cond, msg) => { if (!cond) { fails++; console.log('FALLO:', msg); } else console.log('ok  ', msg); };
@@ -82,6 +82,40 @@ for (const mode of ['extended', 'cities56']) {
   check(land.find(h => h.terrain === 'desert').number === undefined && !!corner, 'la ficha A (5) empieza en una esquina y el desierto no tiene ficha');
   const s = C.createGame({ mode: 'classic', players: NAMES.slice(0, 4).map((name, i) => ({ name, color: 'c' + i })) });
   check(/^Tiradas para empezar/.test(s.log[0].msg) && s.setup.order[0] === s.first, 'el primer jugador se decide tirando los dados');
+}
+
+// ================= tablero 5-6 oficial y puertos del marco =================
+{
+  const B = C._B;
+  const rows = ['x x x', 'x x x x', 'x x x x x', 'x x x x x x', 'x x x x x', 'x x x x', 'x x x'];
+  // el tablero de ejemplo del reglamento 5-6 (desiertos arriba a la derecha y en la punta izquierda; A en la esquina superior derecha)
+  const land = B.rowsToHexes(rows);
+  land.forEach((h, i) => { h.terrain = i === 2 || i === 12 ? 'desert' : 'forest'; });
+  const b = B.buildGraph(B.addSeaRing(land));
+  let same = false;
+  for (let t = 0; t < 300 && !same; t++) {
+    B.spiralNumbers(b, B.EXT_SPIRAL_TOKENS);
+    same = b.hexes.slice(0, 30).map(h => h.number || 'D').join(' ') === '10 6 D 6 2 9 11 3 11 5 10 4 D 5 4 6 3 8 12 10 2 4 11 8 3 9 5 9 12 8';
+  }
+  check(same, '5-6: la espiral A…ZC reproduce el tablero de ejemplo del reglamento');
+  let okSeq = 0, okRed = 0, okPorts = 0;
+  for (let i = 0; i < 100; i++) {
+    const g = C.generateBoard('extended');
+    const l = g.hexes.filter(h => C.isLand(h.terrain));
+    if (l.map(h => h.number).filter(Boolean).sort((x, y) => x - y).join() === '2,2,3,3,3,4,4,4,5,5,5,6,6,6,8,8,8,9,9,9,10,10,10,11,11,11,12,12') okSeq++;
+    if (!l.some(h => (h.number === 6 || h.number === 8) && C.neighborsOf(g, h).some(n => n.number === 6 || n.number === 8))) okRed++;
+    const vs = g.ports.flatMap(p => g.edges[p.edge].v);
+    const t = g.ports.map(p => p.type).sort().join();
+    // los 2 puertos impresos en los marcos pequeños del 5-6 son fijos
+    const fixedOk = g.ports[5].type === 'any' && g.ports[9].type === 'sheep';
+    if (g.ports.length === 11 && new Set(vs).size === 22 && t === 'any,any,any,any,any,brick,ore,sheep,sheep,wheat,wood' && fixedOk) okPorts++;
+  }
+  check(okSeq === 100 && okRed === 100, '5-6: las 28 fichas en espiral y nunca dos rojas juntas');
+  check(okPorts === 100, '5-6: 11 puertos en los lugares del marco (2:1 lana y 3:1 de los marcos pequeños fijos)');
+  // 3-4: los 9 lugares de puerto del marco son siempre los mismos; solo cambia qué pieza va en cada uno
+  const e1 = C.generateBoard('classic').ports.map(p => p.edge).join(), e2 = C.generateBoard('classic').ports.map(p => p.edge).join();
+  const ty = C.generateBoard('classic').ports.map(p => p.type).sort().join();
+  check(e1 === e2 && ty === 'any,any,any,any,brick,ore,sheep,wheat,wood', '3-4: 9 puertos en los lugares fijos del marco, con las piezas repartidas al azar');
 }
 
 // ================= partidas completas entre bots =================

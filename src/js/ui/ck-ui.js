@@ -85,6 +85,7 @@
     if (v.phase === 'roll') return v.current === me ? 'Tira los dados (puedes jugar el Alquimista antes)' : `Esperando a que ${who} tire los dados…`;
     if (v.phase === 'peek') return v.current === me ? 'Elige la carta que te llevas' : `${who} está mirando las cartas de un rival…`;
     if (v.phase === 'give') return v.pendingGive[me] ? `Boda: entrega ${v.pendingGive[me]} cartas a ${this.pname(v.ck.giveTo)}` : 'Esperando los regalos de boda…';
+    if (v.phase === 'ckChoice') return this.ckChoiceStatus();
     if (v.phase === 'placeKnight') return v.current === me ? 'Desertor: coloca tu caballero en un cruce junto a tus carreteras' : `${who} coloca un caballero…`;
     if (v.phase === 'main' && v.current === me && this.mode) {
       const M = {
@@ -101,10 +102,37 @@
     return null;
   };
 
+  G.ckMyChoice = function () {
+    const v = this.view, c = v.phase === 'ckChoice' && v.ck.choices && v.ck.choices[0];
+    return c && c.pid === this.me ? c : null;
+  };
+  G.ckChoiceStatus = function () {
+    const v = this.view, c = v.ck.choices[0];
+    if (!c) return null;
+    if (c.pid !== this.me) {
+      const why = { relocate: 'decide a dónde mueve su caballero', deserter: 'elige qué caballero retira', pillage: 'elige qué ciudad saquean los bárbaros',
+        defenderDeck: 'elige un mazo de progreso', harborOffer: 'elige qué recurso ofrece', harborReturn: 'elige qué mercancía entrega' }[c.kind];
+      return `Esperando: ${this.pname(c.pid)} ${why}…`;
+    }
+    switch (c.kind) {
+      case 'relocate': return 'Tu caballero fue desalojado: elige un cruce libre unido a tus carreteras, o retíralo a tu reserva';
+      case 'deserter': return `Desertor: elige cuál de tus caballeros se retira (lo juega ${this.pname(c.by)})`;
+      case 'pillage': return '¡Los bárbaros ganaron! Elige qué ciudad saquean (queda reducida a poblado)';
+      case 'harborOffer': return `Puerto comercial: elige qué recurso ofreces a ${this.pname(c.target)}`;
+      case 'harborReturn': return `Puerto comercial: elige qué mercancía entregas a ${this.pname(c.to)}`;
+      case 'defenderDeck': return 'Defensores de Catan: elige de qué mazo robas';
+    }
+    return null;
+  };
+
   // ---------- resaltados ----------
   G.ckHighlights = function () {
     const v = this.view, me = this.me;
     if (v.phase === 'placeKnight' && v.current === me) return { vertices: CK.knightSpots(v, me), vertexR: 12 };
+    const ch = this.ckMyChoice();
+    if (ch && ['relocate', 'deserter', 'pillage'].includes(ch.kind)) {
+      return { vertices: CK.choiceOptions(v, ch), vertexR: ch.kind === 'relocate' ? 12 : 18, selectedVertices: ch.kind === 'relocate' ? [ch.from] : [] };
+    }
     if (!this.mode || !this.isMyBuild()) return null;
     const own = Object.keys(v.knights).map(Number).filter(x => v.knights[x].owner === me);
     switch (this.mode) {
@@ -138,6 +166,11 @@
   G.ckBoardClick = function (kind, id) {
     const v = this.view, me = this.me;
     if (v.phase === 'placeKnight' && v.current === me) { if (kind === 'vertex') this.send({ type: 'placeFreeKnight', vertex: id }); return true; }
+    const ch = this.ckMyChoice();
+    if (ch) {
+      if (kind === 'vertex' && CK.choiceOptions(v, ch).includes(id)) this.send({ type: 'ckChoose', pick: id });
+      return true;
+    }
     if (!this.mode) return false;
     const m = this.mode;
     if (kind === 'vertex' && ['knight', 'activate', 'promote', 'wall'].includes(m)) {
@@ -211,6 +244,8 @@
     if (v.phase === 'roll' && this.isMyTurn()) html += `<button class="abtn primary roll" data-a="roll"><span class="ab-ic">🎲</span><span class="ab-l">Tirar dados</span></button>`;
     if (v.phase === 'roadBuilding' && this.isMyTurn()) html += `<button class="abtn" data-a="endRoadBuilding"><span class="ab-l">Terminar construcción gratis</span></button>`;
     if (v.phase === 'placeKnight' && this.isMyTurn()) html += `<button class="abtn" data-a="skipKnight"><span class="ab-l">No colocar</span></button>`;
+    const ch = this.ckMyChoice();
+    if (ch && ch.kind === 'relocate') html += `<button class="abtn primary" data-a="knightHome"><span class="ab-l">Retirar a la reserva</span></button>`;
     if (this.mode === 'prog' && this.prog && this.prog.multi && this.prog.picks.length) html += `<button class="abtn primary" data-a="progOk"><span class="ab-l">Confirmar (${this.prog.picks.length})</span></button>`;
     html += btn('road', 'Carretera', pieceSVG('road', P.color, 22), build && P.pieces.road > 0 && this.afford('road') && C.validRoutes(v, me, 'road').length, C.COST.road);
     html += btn('settlement', 'Poblado', pieceSVG('settlement', P.color, 22), build && P.pieces.settlement > 0 && this.afford('settlement') && C.validSettlements(v, me, false).length, C.COST.settlement);
@@ -233,6 +268,7 @@
     if (['knight', 'activate', 'promote', 'wall', 'kfrom'].includes(a)) { this.setMode(this.mode === a ? null : a); return true; }
     if (a === 'improve') { this.openImprovements(); return true; }
     if (a === 'skipKnight') { this.send({ type: 'skipFreeKnight' }); return true; }
+    if (a === 'knightHome') { this.send({ type: 'ckChoose', pick: null }); return true; }
     if (a === 'progOk') { this.finishProg(); return true; }
     return false;
   };
@@ -420,6 +456,8 @@
     if (v.phase === 'give' && v.pendingGive[me]) return 'give:' + v.turn + ':' + v.logSeq;
     if (v.phase === 'peek' && v.current === me) return 'peek:' + v.turn + ':' + v.ck.peek.kind;
     if (v.ck.pendingProgressDiscard[me]) return 'pdisc:' + v.players[me].progress.length;
+    const ch = this.ckMyChoice();
+    if (ch && ['harborOffer', 'harborReturn', 'defenderDeck'].includes(ch.kind)) return 'ckc:' + ch.kind + ':' + (ch.target !== undefined ? ch.target : ch.to) + ':' + v.ck.choices.length + ':' + v.logSeq;
     return null;
   };
   G.ckOpenModal = function (key) {
@@ -444,7 +482,30 @@
       const n = Math.min(2, C.total(hand));
       return this.pickResources('Maestro mercader', `Mano de ${esc(v.players[v.ck.peek.target].name)}: elige ${n} cartas`, n, hand, r => this.send({ type: 'peekTake', resources: r }), false, true, KEYS);
     }
+    if (key.startsWith('ckc')) return this.ckOpenChoice(this.ckMyChoice());
     if (key.startsWith('pdisc')) return this.openProgressDiscard('Tienes más de 4 cartas de progreso: descarta una.', false);
+    return null;
+  };
+
+  G.ckOpenChoice = function (ch) {
+    const v = this.view;
+    const opts = CK.choiceOptions(v, ch);
+    const pick = (title, sub, items, skip) => this.modal(`<h2>${esc(title)}</h2><p>${sub}</p>
+      <div class="res-pick ${items.length > 5 ? 'wide8' : ''}">${items.map(it => `<button class="rp" data-k="${it.k}">${it.ic}<span>${esc(it.n)}</span></button>`).join('')}</div>
+      ${skip ? `<div class="go-btns"><button class="btn" data-skip>${esc(skip)}</button></div>` : ''}`, {
+      mount: (m, close) => m.addEventListener('click', e => {
+        const b = e.target.closest('[data-k]');
+        if (b) { close(); this.send({ type: 'ckChoose', pick: b.dataset.k }); }
+        if (e.target.closest('[data-skip]')) { close(); this.send({ type: 'ckChoose', pick: null }); }
+      })
+    });
+    const res = k => ({ k, ic: icon(k, 36), n: C.RES_NAME[k] + ' (' + (this.P.resources[k] || 0) + ')' });
+    if (ch.kind === 'harborOffer') return pick('Puerto comercial', `Elige qué recurso das a <b>${this.pname(ch.target)}</b>; a cambio te dará 1 mercancía de su elección.`, opts.map(res), 'No ofrecerle nada');
+    if (ch.kind === 'harborReturn') return pick('Puerto comercial', `${this.pname(ch.to)} te dio un recurso: elige qué mercancía le entregas.`, opts.map(res));
+    if (ch.kind === 'defenderDeck') {
+      return pick('Defensores de Catan', 'Empataste como mejor defensor: elige de qué mazo robas una carta de progreso.',
+        opts.map(a => ({ k: a, ic: icon(CK.AREA_COMM[a], 36), n: CK.AREA_NAME[a] + ' (' + v.ck.decks[a] + ')' })));
+    }
     return null;
   };
 

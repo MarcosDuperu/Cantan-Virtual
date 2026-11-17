@@ -93,24 +93,29 @@ mapas en `src/js/engine/board.js`, pruebas en `tools/test-pe.js`.
   pescado con dado y reserva de cargas, Consejo de Catan (cuenta como mar; solo se construye en el lado de la isla),
   islas de especias (1 tripulación por jugador y aldea, construir en sus esquinas solo tras dejarla) y sus ventajas
   acumulables (2 aldeas de cada una: Viaje rápido +1 cada una, Bonificación pirata 4 y 5, Oro rápido 1 venta cada una).
-- **Mapas** con la estructura y las cantidades oficiales: isla inicial del juego base (19 hexágonos, con desierto; 21 en 5-6),
-  Consejo junto a su costa este (escenarios 3-5) y dos zonas inexploradas, norte (luna verde) y sur (sol naranja),
-  separadas por mar, cada una con su pila de fichas numéricas. Hexágonos ocultos por escenario: 16 / 22 / 22 / 26 / 32
-  (3-4 jugadores) y 20 / 28 / 32 / 32 / 40 (5-6), con las guaridas, bancos de pesca e islas de especias de cada zona
-  según el reglamento.
+- **Tableros oficiales** transcritos de las ilustraciones (reglamento 2020: ejemplos 2, 10, 13, 15 y 17; 5-6 de 2022/2023:
+  ejemplos 1-4). En 3-4, filas de 6-7-8-9-8-7-6 hexágonos en el escenario 1 y que crecen con las piezas de marco B1, B2, E y G
+  hasta 9-10-11-12-11-10-9 en el 5; en 5-6, 9 filas (7 a 13 hexágonos). Alrededor va el marco: el pirata no entra en él y no se
+  navega entre dos piezas del marco. Consejo de Catan en el lugar de D2/D3 (escenarios 3-5). Hexágonos ocultos: 16 / 22 / 22 / 26 / 32
+  (3-4) y 28 / 28 / 32 / 32 / 40 (5-6).
+- **Isla inicial**: 15 hexágonos sin desierto (4 bosques, 4 pastos, 2 campos, 2 colinas, 3 montañas) con fichas fijas; terrenos
+  fijos en los escenarios 1 y 2 y al azar desde el 3. En 5-6, 22 hexágonos (se suman 2 pastos, 2 montañas, bosque, campo y colina)
+  con terrenos al azar y fichas fijas (el texto dice «21 hexágonos», pero el dibujo y las 22 fichas muestran 22).
+- **Losetas estándar** de las zonas: norte 2 montañas, bosque, pasto, campo, colina y 2 mares; sur montaña, bosque, pasto, 2 campos,
+  colina y 2 mares (más las de la ampliación 5-6: norte montaña, bosque, campo; sur montaña, pasto, colina).
+- **Colocación**: en el escenario 1, posiciones fijas del ejemplo 2 (con 3 jugadores no se usa la cuarta; con 2, los otros dos colores
+  quedan como obstáculos neutrales sin barcos). En los escenarios 2-5, el poblado portuario va en uno de los cruces marcados con un
+  círculo (las dos esquinas este del último hexágono de cada fila de la isla: 14 en 3-4, 18 en 5-6).
+- **Pista de misión**: casillas 1 a 7 → 1, 1, 2, 2, 2, 3, 3 PV (ejemplo 9); el líder suma 1 PV.
 - **2 jugadores**: tras los portuarios, cada uno coloca un portuario neutral y luego un poblado neutral (obstáculos grises
   que no producen ni dan puntos).
 - **5-6 jugadores en pareja**: el jugador 1 tira, comercia con todos, construye y mueve barcos; después el jugador 2
   (el tercero a su izquierda) solo comercia con el banco, construye y mueve sus barcos (y puede ganar); luego pasa el turno.
   Banco de 24, 8 guaridas, 8 cargas de pescado y fichas extra (verde 2, 5, 9; naranja 3, 4, 10).
-- **Lo que solo está en las ilustraciones** del reglamento y aquí es propio:
-  - PV de las pistas de misión: casillas 1 a 7 → 1, 1, 2, 2, 3, 3, 4 PV (el líder suma 1 PV).
-  - Posición exacta de cada hexágono y ficha; las fichas de la isla inicial se reparten al azar sin 6/8 juntos.
-  - Tipos de las 12 losetas estándar de las zonas inexploradas y valores de sus fichas y de las fichas de guarida
-    (las de la ampliación 5-6 sí son las oficiales).
-  - Sitios marcados para los portuarios: cualquier esquina costera de la isla inicial.
-  - Escenario 1 con colocación libre (el original usa posiciones fijas) y, en 5-6, deducido del escenario 2 sin guaridas
-    (el reglamento recomienda no jugarlo).
-- **Otras simplificaciones**: la captura de una guarida se resuelve al momento (no al final de la fase de movimiento);
-  el dado de pesca se tira solo al empezar la fase de movimiento (y no en la parte del jugador 2); el tributo pirata se
-  paga al banco; el oro no se ofrece en el comercio entre jugadores; no se puede retirar un barco para reconstruirlo.
+- **Propio** (el reglamento no lo muestra): los valores de las fichas de las zonas sin explorar y de las fichas de guarida
+  (en las ilustraciones están boca abajo; los de la ampliación 5-6 sí son los oficiales), que las guaridas y especias queden junto
+  al agua al repartir las zonas, y el escenario 1 para 5-6 (tablero del 2 con mar en lugar de guaridas; el reglamento recomienda no jugarlo).
+- **Revisado con el reglamento 2020**: la captura de una guarida se resuelve al terminar la fase de movimiento; el dado de pesca
+  es opcional (una vez por turno, durante tu fase de movimiento; no en la parte del jugador 2); el tributo pirata se paga
+  a la reserva (como dice el reglamento); el oro se comercia entre jugadores como una carta más; con los 3 barcos en el
+  tablero puedes retirar uno (pierde su carga) para construirlo de nuevo junto a un poblado portuario.

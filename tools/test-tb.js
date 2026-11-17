@@ -1,5 +1,5 @@
 // Pruebas de reglas de Mercaderes y Bárbaros (variantes y escenarios). Uso: node tools/test-tb.js
-['board', 'rules', 'ck', 'pe', 'tb', 'ai', 'names'].forEach(f => require('../src/js/engine/' + f + '.js'));
+['board', 'rules', 'ck', 'pe', 'tb', 'sf', 'ai', 'names'].forEach(f => require('../src/js/engine/' + f + '.js'));
 const C = globalThis.Catan;
 const TB = C.TB;
 let fails = 0;

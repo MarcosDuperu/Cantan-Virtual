@@ -41,7 +41,8 @@
       else if (prod && prod[vx.port] >= 5) val += 2.5;
       else val += 0.5;
     }
-    if (C.MODES[s.mode].ships) {
+    if (s.sf) val += C.SF.vertexBonus(s, pid, v);
+    else if (C.MODES[s.mode].ships) {
       const isl = vx.hexes.map(h => s.board.hexes[h].island).find(i => i >= 0);
       if (isl !== undefined && !s.board.homeIslands.includes(isl) && !s.players[pid].islands.includes(isl)) val += 9;
     }
@@ -61,11 +62,12 @@
     if (far === undefined) return null;
     const seen = new Map([[far, 0]]);
     const q = [far];
-    let score = 0;
+    let score = s.sf ? C.SF.edgeBonus(s, pid, e) : 0;
     while (q.length) {
       const v = q.shift();
       const d = seen.get(v);
-      if (freeSpot(s, v)) score = Math.max(score, vertexValue(s, pid, v, prod) / (1 + d * 0.9));
+      if (freeSpot(s, v) && (!s.sf || C.SF.settleOk(s, pid, v, false))) score = Math.max(score, vertexValue(s, pid, v, prod) / (1 + d * 0.9));
+      if (s.sf && d > 0) for (const x of s.board.vertices[v].edges) { const eb = C.SF.edgeBonus(s, pid, x); if (eb && !s.roads[x]) score = Math.max(score, eb / (1 + d * 0.9)); }
       if (d >= 3 || (s.buildings[v] && s.buildings[v].owner !== pid)) continue;
       for (const x of s.board.vertices[v].edges) {
         if (s.roads[x]) continue;
@@ -523,11 +525,31 @@
     return { type: 'endTurn' };
   }
 
+  // decisiones que piden las cartas de progreso y el ataque bárbaro
+  function ckChoice(s, pid) {
+    const c = s.ck.choices[0];
+    if (!c || c.pid !== pid) return null;
+    const P = s.players[pid];
+    const opts = C.CK.choiceOptions(s, c);
+    const val = v => s.board.vertices[v].hexes.reduce((x, h) => x + (s.board.hexes[h].number ? C.PIPS[s.board.hexes[h].number] : 0), 0);
+    const most = keys => keys.slice().sort((x, y) => P.resources[y] - P.resources[x])[0];
+    let pick = null;
+    switch (c.kind) {
+      case 'relocate': pick = opts.length ? ckKnightSpot(s, pid, opts) : null; break;
+      case 'deserter': pick = opts.slice().sort((x, y) => (s.knights[x].level - s.knights[y].level) || (s.knights[x].active - s.knights[y].active))[0]; break;
+      case 'pillage': pick = opts.slice().sort((x, y) => val(x) - val(y))[0]; break;
+      case 'defenderDeck': pick = opts.slice().sort((x, y) => P.improve[y] - P.improve[x])[0]; break;
+      case 'harborOffer': case 'harborReturn': pick = most(opts) || null; break;
+    }
+    return { type: 'ckChoose', pick };
+  }
+
   function ckDecide(s, pid, mem) {
     const P = s.players[pid];
     if (s.ck.pendingProgressDiscard[pid]) return { type: 'discardProgress', index: worstProgress(P) };
     if (s.phase === 'discard') return s.pendingDiscard[pid] ? { type: 'discard', resources: ckPickMost(P.resources, s.pendingDiscard[pid], false) } : null;
     if (s.phase === 'give') return s.pendingGive[pid] ? { type: 'give', resources: ckPickMost(P.resources, s.pendingGive[pid], false) } : null;
+    if (s.phase === 'ckChoice') return ckChoice(s, pid);
     if (s.phase === 'peek') {
       if (s.current !== pid) return null;
       const pk = s.ck.peek;
@@ -728,6 +750,7 @@
   }
   function peMove(s, pid, mem) {
     if (mem.peTurn !== s.turn) { mem.peTurn = s.turn; mem.peActs = 0; mem.peTrades = 0; mem.peMoves = 0; mem.peSkip = {}; }
+    if (C.PE.canRollFish(s)) return { type: 'rollFish' };
     if (++mem.peMoves > 60) return { type: 'endTurn' };
     const ships = Object.values(s.pe.ships).filter(x => x.owner === pid).sort((a, b) => a.id - b.id);
     for (const sh of ships) {
@@ -740,13 +763,16 @@
   }
   function peRespond(s, pid) {
     const t = s.trade, P = s.players[pid];
-    if (!hasRes(P.resources, t.get) || C.publicVP(s, t.from) >= s.vpTarget - 2) return { type: 'respondTrade', id: t.id, accept: false };
+    if (!hasRes(P.resources, t.get) || (t.get.gold || 0) > P.gold || C.publicVP(s, t.from) >= s.vpTarget - 2) return { type: 'respondTrade', id: t.id, accept: false };
     const g = peGoal(s, pid, production(s, pid));
     const cost = g ? g.cost : {};
     const after = Object.assign({}, P.resources);
     RES.forEach(k => { after[k] += (t.give[k] || 0) - (t.get[k] || 0); });
     const before = missing(P.resources, cost).n, aft = missing(after, cost).n;
-    return { type: 'respondTrade', id: t.id, accept: aft < before || (aft === before && total(t.give) > total(t.get)) };
+    // el oro vale media carta (2 oro compran 1 recurso)
+    const worth = r => total(r) + (r.gold || 0) / 2;
+    if (aft > before) return { type: 'respondTrade', id: t.id, accept: false };
+    return { type: 'respondTrade', id: t.id, accept: (aft < before && worth(t.give) >= worth(t.get) - 1) || (aft === before && worth(t.give) > worth(t.get)) };
   }
   function peDecide(s, pid, mem) {
     const P = s.players[pid];
@@ -981,6 +1007,10 @@
   // Decide la próxima acción. mem: memoria por bot (persistente entre llamadas)
   function decide(s, pid, mem) {
     mem = mem || {};
+    if (s.phase !== 'ended' && s.sf && s.phase !== 'setup') {
+      const r = sfDecide(s, pid, mem);
+      if (r !== undefined) return r;
+    }
     if (s.phase !== 'ended' && s.tb && s.phase !== 'setup') {
       const r = tbDecide(s, pid, mem);
       if (r !== undefined) return r;
@@ -1117,6 +1147,59 @@
       if (mv) return mv;
     }
     return { type: 'endTurn' };
+  }
+
+  // ================= Navegantes =================
+  function sfDecide(s, pid, mem) {
+    const SF = C.SF, P = s.players[pid], id = s.sf.scenario;
+    if (s.phase === 'sfHarbor') {
+      if (!s.sf.hp || s.sf.hp.pid !== pid) return null;
+      let best = null;
+      SF.harborEdges(s).forEach(e => { const v = SF.harborValue(s, e, s.sf.hp.type, pid) + noise(P) * 0.5; if (!best || v > best.v) best = { e, v }; });
+      return best ? { type: 'sfPlaceHarbor', edge: best.e } : null;
+    }
+    if (s.phase === 'sfSteal') {
+      if (s.current !== pid) return null;
+      const vs = SF.stealVictims(s, pid).sort((a, b) => (C.publicVP(s, b) * 3 + total(s.players[b].resources)) - (C.publicVP(s, a) * 3 + total(s.players[a].resources)));
+      return { type: 'sfSteal', victim: vs.length ? vs[0] : null };
+    }
+    if (s.phase === 'robber' && s.current === pid && id === 6) {
+      const a = robberChoice(s, pid);
+      if (a && a.victim !== null && a.victim !== undefined) a.cloth = s.players[a.victim].cloth > 0 && P.cloth % 2 === 1;
+      return a;
+    }
+    if (s.phase !== 'main' || s.current !== pid || s.trade) return undefined;
+    if (id === 7) {
+      // atacar la fortaleza cuando la ruta llega y hay barcos de guerra suficientes
+      const F = SF.fortOf(s, pid);
+      if (F && F.hp > 0 && SF.routeDone(s, pid) && s.sf.attacked !== pid) {
+        const w = SF.warships(s, pid);
+        if (w >= 4 || (w >= 3 && Math.random() < 0.5) || (w >= 2 && P.pieces.ship <= 2)) return { type: 'sfAttack' };
+      }
+      const route = SF.pirateRouteEdges(s, pid);
+      if (route.length && P.pieces.ship > 0 && hasRes(P.resources, COST.ship)) return { type: 'buildShip', edge: route[0] };
+      if (route.length && P.pieces.ship > 0 && mem.sfShipTrade !== s.turn) {
+        const bt = bankTradeFor(s, pid, COST.ship);
+        if (bt) { mem.sfShipTrade = s.turn; return bt; }
+      }
+      if (P.devCards.some(c => c.type === 'knight' && c.turn !== s.turn) && C.playableDev(s, pid).includes('knight')) return { type: 'playDev', card: 'knight' };
+      if (SF.routeDone(s, pid) && hasRes(P.resources, COST.dev) && s.devDeck.length) return { type: 'buyDev' };
+    }
+    if (id === 8) {
+      const w = s.sf.wonders.find(x => x.owner === pid);
+      if (!w) {
+        const opts = SF.wonderOptions(s, pid);
+        if (opts.length && P.pieces.ship > 0) return { type: 'sfWonderStart', wonder: opts[0] };
+      } else if (w.level < 4) {
+        const cost = SF.WONDERS[w.kind].cost;
+        if (hasRes(P.resources, cost)) return { type: 'sfWonderBuild' };
+        if (C.publicVP(s, pid) >= 6) {
+          const bt = bankTradeFor(s, pid, cost);
+          if (bt) return bt;
+        }
+      }
+    }
+    return undefined;
   }
 
   C.AI = { decide, production };

@@ -74,7 +74,7 @@
       case 'setup': {
         const st = v.setup.step;
         if (!mine) return `${who} está colocando ${{ harbor: 'su poblado portuario', settlement: 'su poblado', road: 'una carretera', ship: 'su barco', nharbor: 'un poblado portuario neutral', nsettlement: 'un poblado neutral' }[st]}…`;
-        if (st === 'harbor') return 'Coloca tu poblado portuario en la costa de la isla inicial';
+        if (st === 'harbor') return v.board.harborSites ? 'Coloca tu poblado portuario en uno de los cruces marcados de la costa este de la isla inicial' : 'Coloca tu poblado portuario en la costa de la isla inicial';
         if (st === 'nharbor') return 'Coloca un poblado portuario <b>neutral</b> (gris): será un obstáculo para tu rival';
         if (st === 'nsettlement') return 'Coloca un poblado <b>neutral</b> (gris) en la isla inicial';
         if (st === 'settlement') return 'Coloca tu poblado en la isla inicial (recibirás sus recursos)';
@@ -87,7 +87,8 @@
         if (!mine) return v.pe.p2 ? `${who} juega como jugador 2 de la pareja…` : null;
         if (this.mode) {
           const M = { road: 'Elige dónde construir la carretera', settlement: 'Elige dónde construir el poblado', harbor: 'Elige el poblado costero a mejorar',
-            ship: 'Elige una ruta marítima junto a tu poblado portuario', settler: 'Elige un muelle (poblado portuario) o un barco junto a él para el colono',
+            ship: 'Elige una ruta marítima junto a tu poblado portuario' + (this.shipRemove !== null && this.shipRemove !== undefined ? ' (el barco retirado pierde su carga)' : ''),
+            shipRemove: 'No te quedan barcos: elige uno de los tuyos para retirarlo y construirlo de nuevo', settler: 'Elige un muelle (poblado portuario) o un barco junto a él para el colono',
             crew: 'Elige un muelle (poblado portuario) o un barco junto a él para la tripulación' };
           if (M[this.mode]) return M[this.mode] + ' (Esc para cancelar)';
         }
@@ -125,13 +126,25 @@
       case 'road': return { edges: C.validRoutes(v, me, 'road') };
       case 'settlement': return { vertices: PE.settleSpots(v, me) };
       case 'harbor': return { vertices: PE.harborSpots(v, me), vertexR: 16 };
-      case 'ship': return { edges: PE.shipBuildEdges(v, me) };
+      case 'ship': return { edges: this.peShipEdges() };
+      case 'shipRemove': return { edges: [...new Set(Object.values(v.pe.ships).filter(x => x.owner === me).map(x => x.edge))], edgeClass: 'move' };
       case 'settler': case 'crew': {
         const t = PE.cargoTargets(v, me, this.mode);
         return { vertices: t.docks, vertexR: 16, edges: [...new Set(t.ships.map(id => v.pe.ships[id].edge))], edgeClass: 'move' };
       }
     }
     return {};
+  };
+
+  // rutas para un barco nuevo (si se retira uno, su lado queda libre)
+  G.peShipEdges = function () {
+    const v = this.view, rm = this.shipRemove;
+    const old = rm !== undefined && rm !== null ? v.pe.ships[rm] : null;
+    if (!old) return PE.shipBuildEdges(v, this.me);
+    delete v.pe.ships[rm];
+    const out = PE.shipBuildEdges(v, this.me);
+    v.pe.ships[rm] = old;
+    return out;
   };
 
   // Elige entre los barcos propios de una arista (puede haber dos)
@@ -181,7 +194,11 @@
     if (m === 'road' && kind === 'edge') { this.setMode(null); this.send({ type: 'buildRoad', edge: id }); }
     else if (m === 'settlement' && kind === 'vertex') { this.setMode(null); this.send({ type: 'buildSettlement', vertex: id }); }
     else if (m === 'harbor' && kind === 'vertex') { this.setMode(null); this.send({ type: 'buildHarbor', vertex: id }); }
-    else if (m === 'ship' && kind === 'edge') { this.setMode(null); this.send({ type: 'buildShip', edge: id }); }
+    else if (m === 'ship' && kind === 'edge') { const rm = this.shipRemove; this.shipRemove = null; this.setMode(null); this.send({ type: 'buildShip', edge: id, remove: rm === null ? undefined : rm }); }
+    else if (m === 'shipRemove' && kind === 'edge') {
+      const list = Object.values(v.pe.ships).filter(x => x.owner === me && x.edge === id);
+      if (list.length) this.pePickShip(list, 'Barco a retirar', sh => { this.shipRemove = sh.id; this.setMode('ship'); });
+    }
     else if (m === 'settler' || m === 'crew') {
       const type = m === 'settler' ? 'buildSettler' : 'buildCrew';
       if (kind === 'vertex') { this.setMode(null); this.send({ type, dock: id }); }
@@ -292,11 +309,14 @@
     html += btn('road', 'Carretera', pieceSVG('road', P.color, 22), main && P.pieces.road > 0 && has(PE.COST.road) && C.validRoutes(v, me, 'road').length, PE.COST.road);
     html += btn('settlement', 'Poblado', pieceSVG('settlement', P.color, 22), main && P.pieces.settlement > 0 && has(PE.COST.settlement) && PE.settleSpots(v, me).length, PE.COST.settlement);
     html += btn('harbor', 'Portuario', '⚓', main && P.pieces.harbor > 0 && has(PE.COST.harbor) && PE.harborSpots(v, me).length, PE.COST.harbor, 'Poblado portuario: mejora un poblado costero (2 PV)');
-    html += btn('ship', 'Barco', pieceSVG('ship', P.color, 22), main && P.pieces.ship > 0 && has(PE.COST.ship) && PE.shipBuildEdges(v, me).length, PE.COST.ship, 'Barco: junto a tu poblado portuario');
+    const ownShips = Object.values(v.pe.ships).filter(x => x.owner === me).length;
+    html += btn(P.pieces.ship > 0 ? 'ship' : 'shipRemove', 'Barco', pieceSVG('ship', P.color, 22), main && has(PE.COST.ship) && (P.pieces.ship > 0 ? PE.shipBuildEdges(v, me).length : ownShips > 0), PE.COST.ship,
+      P.pieces.ship > 0 ? 'Barco: junto a tu poblado portuario' : 'No te quedan barcos: retira uno del tablero (pierde su carga) y constrúyelo de nuevo');
     html += btn('settler', 'Colono', icon('settler', 22), main && P.pieces.settler > 0 && has(PE.COST.settler) && tgt('settler'), PE.COST.settler, 'Colono: funda un poblado en otra isla');
     html += btn('crew', 'Tripulación', icon('crew', 22), main && P.pieces.crew > 0 && has(PE.COST.crew) && tgt('crew'), PE.COST.crew, 'Tripulación: guaridas piratas y especias');
     html += btn('trade', 'Comerciar', '⇄', main && !v.trade, null, v.pe.p2 ? 'Jugador 2: solo con el banco' : 'Banco 3:1 y otros jugadores');
     html += btn('gold', 'Oro', icon('gold', 22), main, null, 'Cambiar oro por recursos o vender recursos');
+    if (move && PE.canRollFish(v)) html += `<button class="abtn" data-a="rollFish" title="Si sale el número de un banco de pesca descubierto, aparece pescado"><span class="ab-ic">🎲</span><span class="ab-l">Dado de pesca</span></button>`;
     if (main) html += `<button class="abtn primary" data-a="startMove" title="Después ya no podrás comerciar ni construir este turno"><span class="ab-ic">⛵</span><span class="ab-l">Mover barcos</span></button>`;
     html += `<button class="abtn end ${move ? 'primary' : ''}" data-a="end" ${main || move ? '' : 'disabled'}><span class="ab-l">Terminar turno</span></button>`;
     html += `<div class="pieces-left" title="Piezas restantes">${pieceSVG('road', P.color, 15)}${P.pieces.road} ${pieceSVG('settlement', P.color, 15)}${P.pieces.settlement}
@@ -305,7 +325,8 @@
   };
 
   G.peAction = function (a) {
-    if (['road', 'settlement', 'harbor', 'ship', 'settler', 'crew'].includes(a)) { this.setMode(this.mode === a ? null : a); return true; }
+    if (['road', 'settlement', 'harbor', 'ship', 'shipRemove', 'settler', 'crew'].includes(a)) { this.shipRemove = null; this.setMode(this.mode === a ? null : a); return true; }
+    if (a === 'rollFish') { this.send({ type: 'rollFish' }); return true; }
     if (a === 'startMove') { this.setMode(null, true); this.send({ type: 'startMove' }); return true; }
     if (a === 'gold') { this.peOpenGold(); return true; }
     return false;

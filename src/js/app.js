@@ -8,7 +8,7 @@
 
   const MODE_CARDS = [
     { id: 'classic', title: 'Clásico', sub: '2-6 jugadores · 10 PV', desc: 'El juego original. Con 5-6 jugadores se usa la ampliación oficial y con 2, «Catan para dos».', art: ['wood', 'brick', 'sheep', 'wheat', 'ore'] },
-    { id: 'seafarers', title: 'Navegantes', sub: '3-4 jugadores · 14 PV', desc: '«Hacia nuevas costas»: barcos, islas, pirata y ríos de oro.', art: ['gold', 'wood', 'sheep'] },
+    { id: 'seafarers', title: 'Navegantes', sub: '3-6 jugadores · 9 escenarios', desc: 'Barcos, islas, pirata y ríos de oro: de «Hacia nuevas costas» a «Nuevo mundo».', art: ['gold', 'wood', 'sheep'] },
     { id: 'cities', title: 'Ciudades y Caballeros', sub: '3-6 jugadores · 13 PV', desc: 'Mercancías, mejoras de ciudad, metrópolis, caballeros y bárbaros.', art: ['knight', 'vp', 'ore'] },
     { id: 'traders', title: 'Mercaderes y Bárbaros', sub: '2-6 jugadores · 5 escenarios', desc: 'Pescadores, ríos, caravanas, ataque bárbaro y carretas de mercancías.', art: ['fish', 'wheat', 'gold'] },
     { id: 'explorers', title: 'Piratas y Exploradores', sub: '2-6 jugadores · 5 escenarios', desc: 'Explora el mar oculto, funda colonias, captura guaridas piratas y lleva pescado y especias al Consejo.', art: ['fish', 'pirate', 'gold'] }
@@ -155,6 +155,7 @@
   function scenarioSet(mode) {
     if (mode === 'explorers') return { list: C.PE.SCENARIOS, def: 2 };
     if (mode === 'traders') return { list: C.TB.SCENARIOS, def: 1 };
+    if (mode === 'seafarers') return { list: C.SF.SCENARIOS, def: 1 };
     return null;
   }
   // Escenarios que admite un número de jugadores (Catan para dos: solo 1 y 2)
@@ -177,7 +178,7 @@
   function optionsHTML(mode, o, count) {
     const set = scenarioSet(mode);
     const sc = set ? validScenario(mode, o.scenario, count) : null;
-    return `${set ? `<label class="opt"><span>Escenario</span><select id="op-scen">${scenarioList(mode, count).map(x => `<option value="${x.id}" ${x.id === sc ? 'selected' : ''}>${x.id}. ${esc(x.name)} (${x.vp} PV)</option>`).join('')}</select></label>
+    return `${set ? `<label class="opt"><span>Escenario</span><select id="op-scen">${scenarioList(mode, count).map(x => `<option value="${x.id}" ${x.id === sc ? 'selected' : ''}>${x.id}. ${esc(count >= 5 && x.name56 ? x.name56 : x.name)} (${x.vp} PV)</option>`).join('')}</select></label>
       <div class="opt-note muted small" id="op-scen-desc">${esc(set.list[sc].desc)}</div>` : ''}
       <label class="opt"><span>Puntos para ganar</span><input type="number" id="op-vp" min="5" max="25" value="${o.vpTarget || defaultVP(mode, sc)}"></label>
       ${mode === 'explorers' ? '' : `<label class="opt check"><input type="checkbox" id="op-friendly" ${o.friendlyRobber ? 'checked' : ''}><span>Ladrón amistoso <small>(no afecta a jugadores con ≤2 PV)</small></span></label>`}

@@ -202,7 +202,9 @@ sh = mkShip(s, p, routeEdgesOf(s, lairHex.id)[0], ['crew']);
 P.pieces.crew--;
 const gp = P.gold, gq = s.players[q2].gold, crewQ = s.players[q2].pieces.crew;
 check(!C.apply(s, p, { type: 'dropCrew', ship: sh.id, hex: lairHex.id }).error, 'desembarcar la 3.ª tripulación en la guarida');
-check(!lairHex.lair, 'con 3 tripulaciones la guarida queda capturada');
+check(lairHex.lair && P.gold === gp && !PE.adjacentLairs(s, sh.edge).includes(lairHex.id), 'con 3 tripulaciones cae la guarida: ya no admite más, pero el botín espera');
+check(!C.apply(s, p, { type: 'endTurn' }).error && !lairHex.lair, 'al terminar la fase de movimiento se resuelve la captura');
+s.current = p; s.phase = 'move';
 check(P.gold === gp + 2 && s.players[q2].gold === gq + 2, 'cada participante recibe 2 oro');
 check(P.missions.lairs + s.players[q2].missions.lairs === 3 && P.missions.lairs >= 1 && s.players[q2].missions.lairs >= 1, 'cada participante avanza 1 y el héroe 1 más');
 const hero = P.missions.lairs === 2 ? p : q2;
@@ -233,7 +235,9 @@ s = game(3); p = s.current; P = s.players[p];
 revealAll(s);
 const fishHex = s.board.hexes.find(h => h.terrain === 'fish' && routeEdgesOf(s, h.id).length);
 toMain(s);
-check(!C.apply(s, p, { type: 'startMove', forcedFish: fishHex.fishNo }).error && fishHex.fish === 1, 'el dado de pesca pone pescado en el banco con ese número');
+check(!C.apply(s, p, { type: 'startMove' }).error && !fishHex.fish && PE.canRollFish(s), 'al pasar a la fase de movimiento el dado de pesca es opcional');
+check(!C.apply(s, p, { type: 'rollFish', forcedFish: fishHex.fishNo }).error && fishHex.fish === 1, 'el dado de pesca pone pescado en el banco con ese número');
+check(!!C.apply(s, p, { type: 'rollFish' }).error, 'el dado de pesca se tira una sola vez por turno');
 sh = mkShip(s, p, routeEdgesOf(s, fishHex.id)[0], ['crew']);
 check(!!C.apply(s, p, { type: 'loadFish', ship: sh.id }).error, 'el pescado necesita la bodega vacía');
 sh.cargo = [];
@@ -360,7 +364,7 @@ for (const sc of [1, 2, 3, 4, 5]) {
 
 
 // --- mapas oficiales ---
-const HID = { explorers: [16, 22, 22, 26, 32], explorers56: [20, 28, 32, 32, 40] };
+const HID = { explorers: [16, 22, 22, 26, 32], explorers56: [28, 28, 32, 32, 40] };
 for (const mode of ['explorers', 'explorers56']) {
   for (const sc of [1, 2, 3, 4, 5]) {
     const b = C.generateBoard(mode, { scenario: sc });
@@ -376,7 +380,8 @@ for (const mode of ['explorers', 'explorers56']) {
   }
 }
 let b = C.generateBoard('explorers', { scenario: 3 });
-check(b.hexes.filter(h => h.start).length === 19 && b.hexes.some(h => h.start && h.terrain === 'desert'), 'isla inicial de 19 hexágonos del juego base (con desierto)');
+check(b.hexes.filter(h => h.start).length === 15 && !b.hexes.some(h => h.start && h.terrain === 'desert') &&
+  b.hexes.filter(h => h.start).map(h => h.number).join() === '11,9,3,8,4,10,6,12,8,10,4,11,6,3,5', 'isla inicial oficial: 15 hexágonos sin desierto y fichas fijas');
 const cou = b.hexes.find(h => h.terrain === 'council');
 check(cou && C.neighborsOf(b, cou).filter(n => n.start).length === 1 && cou.nearStart, 'el Consejo de Catan está junto a la costa este de la isla inicial');
 check(b.hexes.filter(h => h.hidden).every(h => h.area === 0 || h.area === 1) && !b.hexes.some(h => h.hidden && h.area === 0 && C.neighborsOf(b, h).some(n => n.hidden && n.area === 1)),
@@ -387,7 +392,14 @@ b = C.generateBoard('explorers', { scenario: 5 });
 const sp5 = b.hexes.filter(h => h.terrain === 'spice');
 check([0, 1].every(ai => ['fastTravel', 'fastGold'].every(k => sp5.filter(h => h.area === ai && h.spice.benefit === k).length === 1)) &&
   sp5.filter(h => /^pirate[45]$/.test(h.spice.benefit)).length === 2, 'cada área tiene una aldea de cada ventaja (bonificación pirata 4 y 5)');
-check(C.generateBoard('explorers56', { scenario: 2 }).hexes.filter(h => h.start).length === 21, '5-6: isla inicial de 21 hexágonos');
+{
+  const g = C.generateBoard('explorers56', { scenario: 2 });
+  const st = g.hexes.filter(h => h.start);
+  check(st.length === 22 && st.map(h => h.number).join() === '2,9,11,8,4,10,10,3,8,6,5,4,5,3,10,6,8,4,11,6,12,9' && g.harborSites.length === 18,
+    '5-6: isla inicial de 22 hexágonos con fichas fijas y 18 lugares para portuarios');
+  check(!g.hexes.some(h => h.terrain === 'council') && C.generateBoard('explorers56', { scenario: 3 }).hexes.some(h => h.terrain === 'council'),
+    '5-6: el Consejo de Catan aparece desde el escenario 3 (en el 2 se usa el reverso de D3)');
+}
 
 // --- consejo cuenta como mar ---
 s = game(3);
@@ -465,6 +477,72 @@ for (const n of [5, 6]) {
     if (t.phase === 'ended') ok2++;
   }
   check(ok2 === 2 && !errs, `${n} jugadores en pareja: 2 partidas entre bots terminan sin errores`);
+}
+
+// --- el oro se comercia entre jugadores como una carta más ---
+{
+  const s = game(1); const p = s.current, q = (p + 1) % 3, P = s.players[p], Q = s.players[q];
+  toMain(s);
+  empty(P); empty(Q); P.gold = 3; Q.gold = 0; give(Q, { ore: 1 });
+  check(!!C.apply(s, p, { type: 'offerTrade', give: { gold: 5 }, get: { ore: 1 } }).error, 'oro: no puedes ofrecer más oro del que tienes');
+  check(!C.apply(s, p, { type: 'offerTrade', give: { gold: 2 }, get: { ore: 1 }, to: q }).error, 'oro: ofrecer 2 oro por 1 mineral');
+  check(!C.apply(s, q, { type: 'respondTrade', id: s.trade.id, accept: true }).error, 'oro: el rival acepta');
+  check(!C.apply(s, p, { type: 'confirmTrade', with: q }).error && P.gold === 1 && Q.gold === 2 && P.resources.ore === 1 && Q.resources.ore === 0, 'oro: se intercambian oro y mineral');
+  give(P, { wood: 1 });
+  C.apply(s, p, { type: 'offerTrade', give: { wood: 1 }, get: { gold: 3 }, to: q });
+  check(!!C.apply(s, q, { type: 'respondTrade', id: s.trade.id, accept: true }).error, 'oro: no puede aceptar quien no tiene ese oro');
+  const a = C.AI.decide(s, q, {});
+  check(a && a.type === 'respondTrade' && !a.accept, 'oro: la IA rechaza lo que no puede pagar');
+}
+
+// --- con todos los barcos en el tablero, se puede retirar uno para construirlo de nuevo ---
+{
+  const s = game(1); const p = s.current, P = s.players[p];
+  toMain(s);
+  const mine = Object.values(s.pe.ships).filter(x => x.owner === p);
+  const old = mine[0];
+  old.cargo = ['crew'];
+  const crew0 = P.pieces.crew, onBoard = mine.length;
+  P.pieces.ship = 0;
+  give(P, { wood: 2, sheep: 2 });
+  const e = PE.shipBuildEdges(s, p).find(x => x !== old.edge);
+  if (e !== undefined) {
+    check(!!C.apply(s, p, { type: 'buildShip', edge: e }).error, 'barcos: sin barcos libres hay que elegir uno para retirar');
+    check(!C.apply(s, p, { type: 'buildShip', edge: e, remove: old.id }).error, 'barcos: retirar uno y construirlo de nuevo');
+    check(!s.pe.ships[old.id] && P.pieces.crew === crew0 + 1 && P.pieces.ship === 0 && Object.values(s.pe.ships).filter(x => x.owner === p).length === onBoard, 'barcos: el retirado desaparece y su carga vuelve a la reserva');
+  } else check(true, 'barcos: (sin ruta libre en este tablero)');
+}
+
+// --- tableros oficiales 3-4 ---
+{
+  const terr = sc => C.generateBoard('explorers', { scenario: sc }).hexes.filter(h => h.start).map(h => h.terrain[0] + h.terrain[1]).join(' ');
+  check(terr(1) === terr(1) && terr(1) === 'mo fo fi pa hi pa pa mo fo fi pa fo hi mo fo', 'escenario 1: terrenos de la isla como en el ejemplo 2');
+  check(terr(2) === 'pa fo fi pa hi mo pa mo fo fi pa fo mo hi fo', 'escenario 2: terrenos de la isla como en el ejemplo 10');
+  const t4 = new Set([...Array(8)].map(() => terr(4)));
+  check(t4.size > 1, 'escenarios 3-5: los terrenos de la isla se reparten al azar (las fichas no)');
+  const b2 = C.generateBoard('explorers', { scenario: 2 });
+  check(b2.harborSites.length === 14 && b2.harborSites.every(v => b2.vertices[v].hexes.some(h => b2.hexes[h].start) && b2.vertices[v].hexes.some(h => b2.hexes[h].terrain === 'sea')),
+    'lugares marcados para portuarios: 14 cruces de la costa este de la isla inicial');
+  check(b2.edges.filter(e => e.offBoard).every(e => e.hexes.every(h => b2.hexes[h].frame)), 'no se navega entre dos piezas del marco');
+  // las áreas: 6 losetas estándar por área con los tipos oficiales
+  const tally = [{}, {}];
+  for (let i = 0; i < 30; i++) {
+    const g = C.generateBoard('explorers', { scenario: 1 });
+    g.hexes.filter(h => h.hidden && C.isLand(h.terrain)).forEach(h => { tally[h.area][h.terrain] = (tally[h.area][h.terrain] || 0) + 1; });
+  }
+  check(tally[0].mountains === 60 && tally[0].fields === 30 && tally[1].fields === 60 && tally[1].pasture === 30, 'losetas estándar: norte 2 montañas, sur 2 campos');
+  check(PE.TRACK_VP.slice(1).join() === '1,1,2,2,2,3,3', 'pista de misión: 1, 1, 2, 2, 2, 3, 3 PV');
+}
+// --- escenario 1: colocación fija ---
+for (const n of [2, 3, 4]) {
+  const s = C.createGame({ mode: 'explorers', options: { scenario: 1 }, players: ['Ana', 'Beto', 'Caro', 'Dani'].slice(0, n).map((name, i) => ({ name, color: 'c' + i })) });
+  const mine = s.players.map(p => Object.values(s.buildings).filter(b => b.owner === p.id).length);
+  const neutral = Object.values(s.buildings).filter(b => b.owner === PE.NEUTRAL).length;
+  check(s.phase === 'roll' && mine.every(x => x === 2) && Object.keys(s.pe.ships).length === n && neutral === (n === 2 ? 4 : 0) &&
+    Object.values(s.pe.ships).every(x => x.cargo[0] === 'settler') && s.players.every(p => C.total(p.resources) > 0),
+    `escenario 1 con ${n}: cada uno empieza con poblado, portuario, carretera y barco con colono en su sitio${n === 2 ? ' (los otros colores, neutrales)' : ''}`);
+  const vs = Object.keys(s.buildings).map(Number);
+  check(vs.every(v => s.board.vertices[v].adj.every(a => !s.buildings[a])), `escenario 1 con ${n}: las posiciones fijas respetan la distancia`);
 }
 
 console.log(fails ? fails + ' fallos' : 'Todas las pruebas pasaron');
