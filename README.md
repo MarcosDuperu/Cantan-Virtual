@@ -23,9 +23,9 @@ El ícono está en `build/icon.svg`; para regenerar los PNG: `npx electron tools
 
 ## Modos
 
-- **Clásico** (3-4 jugadores, 10 PV; 5-6 con la ampliación oficial y 2 con «Catan para dos»)
+- **Clásico** (3-4 jugadores, 10 PV; 5-6 con la ampliación oficial y jugadores en pareja, y 2 con «Catan para dos»)
 - **Navegantes: Hacia nuevas costas** (barcos, islas, pirata, oro, 14 PV; 3-4 jugadores)
-- **Ciudades y Caballeros** (13 PV; 3-4 jugadores, 5-6 con su ampliación): mercancías, dado de eventos,
+- **Ciudades y Caballeros** (13 PV; 3-4 jugadores, 5-6 con su ampliación y jugadores en pareja): mercancías, dado de eventos,
   bárbaros, caballeros, murallas, mejoras de ciudad, metrópolis y 54 cartas de progreso
 - **Piratas y Exploradores** (5 escenarios de 8 a 17 PV; 2 jugadores con piezas neutrales, 3-4, y 5-6 con jugadores
   en pareja): mar sin descubrir, barcos con puntos de movimiento, colonos, oro, barco pirata, guaridas piratas,
@@ -53,6 +53,7 @@ Si un jugador se desconecta, la máquina sigue jugando por él.
 - `tools/simulate.js` simula partidas entre bots: `npm run sim -- cities 20` (modos: classic, extended, seafarers, cities, cities56, explorers, explorers56, traders, traders56).
   Para Piratas y Exploradores y Mercaderes y Bárbaros el escenario va después de los jugadores: `npm run sim -- explorers 20 4 5`;
   las variantes, al final: `npm run sim -- traders 10 4 1 events,harbormaster` o `npm run sim -- classic 10 2 0 events`
+- `tools/test-base.js` pruebas del juego básico y su ampliación 5-6: `node tools/test-base.js`
 - `tools/test-ck.js` pruebas de reglas de Ciudades y Caballeros: `node tools/test-ck.js`
 - `tools/test-pe.js` pruebas de reglas de Piratas y Exploradores: `node tools/test-pe.js`
 - `tools/test-tb.js` pruebas de reglas de Mercaderes y Bárbaros y sus variantes: `node tools/test-tb.js`

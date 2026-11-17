@@ -20,12 +20,12 @@
   const MODES = {
     classic: { id: 'classic', name: 'Clásico', min: 3, max: 4, vp: 10, bank: 19, ships: false, specialBuild: false,
       deck: { knight: 14, vp: 5, roadBuilding: 2, yearOfPlenty: 2, monopoly: 2 } },
-    extended: { id: 'extended', name: 'Ampliación 5-6 jugadores', min: 5, max: 6, vp: 10, bank: 24, ships: false, specialBuild: true,
+    extended: { id: 'extended', name: 'Ampliación 5-6 jugadores', min: 5, max: 6, vp: 10, bank: 24, ships: false, specialBuild: true, pairs: true,
       deck: { knight: 20, vp: 5, roadBuilding: 3, yearOfPlenty: 3, monopoly: 3 } },
     seafarers: { id: 'seafarers', name: 'Navegantes: Hacia nuevas costas', min: 3, max: 4, vp: 14, bank: 19, ships: true, specialBuild: false,
       deck: { knight: 14, vp: 5, roadBuilding: 2, yearOfPlenty: 2, monopoly: 2 } },
     cities: { id: 'cities', name: 'Ciudades y Caballeros', min: 3, max: 4, vp: 13, bank: 19, commodities: 12, ships: false, specialBuild: false, ck: true, board: 'classic', deck: {} },
-    cities56: { id: 'cities56', name: 'Ciudades y Caballeros 5-6', min: 5, max: 6, vp: 13, bank: 24, commodities: 15, ships: false, specialBuild: true, ck: true, board: 'extended', deck: {} },
+    cities56: { id: 'cities56', name: 'Ciudades y Caballeros 5-6', min: 5, max: 6, vp: 13, bank: 24, commodities: 18, ships: false, specialBuild: true, pairs: true, ck: true, board: 'extended', deck: {} },
     explorers: { id: 'explorers', name: 'Piratas y Exploradores', min: 2, max: 4, vp: 12, bank: 19, ships: false, specialBuild: false, pe: true, deck: {} },
     explorers56: { id: 'explorers56', name: 'Piratas y Exploradores 5-6', min: 5, max: 6, vp: 12, bank: 24, ships: false, specialBuild: false, pe: true, pairs: true, deck: {} },
     traders: { id: 'traders', name: 'Mercaderes y Bárbaros', min: 2, max: 4, vp: 10, bank: 19, ships: false, specialBuild: false, tb: true,
@@ -73,14 +73,28 @@
       pieces: { road: PIECES.road, settlement: PIECES.settlement, city: PIECES.city, ship: mode.ships ? PIECES.ship : 0 },
       islands: [], routeLength: 0
     }));
-    const first = Math.floor(Math.random() * n);
+    // empieza quien saca más con los dos dados; los empatados vuelven a tirar
+    const d6 = () => 1 + Math.floor(Math.random() * 6);
+    const firstRolls = [];
+    let cands = players.map(p => p.id);
+    while (cands.length > 1) {
+      const r = cands.map(id => [id, d6() + d6()]);
+      firstRolls.push(r);
+      const max = Math.max(...r.map(x => x[1]));
+      cands = r.filter(x => x[1] === max).map(x => x[0]);
+    }
+    const first = cands[0];
     const order = [];
     for (let i = 0; i < n; i++) order.push((first + i) % n);
     for (let i = n - 1; i >= 0; i--) order.push((first + i) % n);
     const bank = emptyRes();
     RES.forEach(k => { bank[k] = mode.bank; });
+    const o0 = config.options || {};
+    // 5-6: jugadores en pareja (regla de 2022) o, si se elige, la antigua fase de construcción especial
+    const special = !!(mode.specialBuild && o0.specialBuild);
     const s = {
       mode: mode.id,
+      pairs: !!mode.pairs && !special, specialBuild: special, pair: null,
       vpTarget: (config.options && config.options.vpTarget) || mode.vp,
       friendlyRobber: !!(config.options && config.options.friendlyRobber),
       board, players, bank, devDeck: deck,
@@ -100,6 +114,7 @@
     if (mode.pe) C.PE.init(s, mode, config);
     const o = config.options || {};
     if (C.TB && !mode.ck && !mode.pe && (mode.tb || o.events || o.harbormaster || n === 2)) C.TB.init(s, mode, config);
+    firstRolls.forEach((r, i) => log(s, (i ? 'Desempate: ' : 'Tiradas para empezar: ') + r.map(([id, v]) => players[id].name + ' ' + v).join(', ') + '.'));
     log(s, 'Comienza la partida. ' + players[s.current].name + ' coloca primero.');
     return s;
   }
@@ -370,6 +385,7 @@
 
   function nextTurn(s) {
     do { s.current = (s.current + 1) % s.players.length; } while (s.players[s.current].neutral);
+    s.pair = null;
     s.turn++;
     s.phase = 'roll';
     s.devPlayed = false;
@@ -461,7 +477,7 @@
           case 'moveShip': return doMoveShip(s, pid, a);
           case 'playDev': return doPlayDev(s, pid, a);
           case 'bankTrade': return doBankTrade(s, pid, a);
-          case 'offerTrade': return doOfferTrade(s, pid, a);
+          case 'offerTrade': if (s.pair) return err('El jugador 2 solo comercia con el banco'); return doOfferTrade(s, pid, a);
           case 'confirmTrade': return doConfirmTrade(s, pid, a);
           case 'cancelTrade': s.trade = null; return;
           case 'endTurn': return doEndTurn(s, pid);
@@ -779,7 +795,12 @@
     if (isCK(s)) { const e = C.CK.canEndTurn(s, pid); if (e) return err(e); }
     if (s.tb) { const r = C.TB.endTurn(s, pid); if (r) return r === true ? undefined : r; }
     s.trade = null;
-    if (MODES[s.mode].specialBuild) {
+    if (s.pairs && !isPE(s) && !s.tb) {
+      if (!s.pair) { startPair(s); return; }
+      s.current = s.pair.p1;
+      s.pair = null;
+    }
+    if (s.specialBuild) {
       const q = [];
       for (let i = 1; i < s.players.length; i++) q.push((pid + i) % s.players.length);
       s.specialQueue = q;
@@ -788,6 +809,22 @@
       return;
     }
     nextTurn(s);
+  }
+
+  // Jugadores en pareja: tras el jugador 1 juega el jugador 2 (el tercero a su izquierda), que solo comercia con el banco
+  function startPair(s) {
+    const p1 = s.current;
+    const p2 = (p1 + 3) % s.players.length;
+    s.pair = { p1, p2 };
+    s.current = p2;
+    s.phase = 'main';
+    s.devPlayed = false;
+    s.shipMoved = false;
+    s.trade = null;
+    if (isCK(s)) C.CK.onTurnStart(s);
+    log(s, s.players[p2].name + ' juega como jugador 2 (solo comercia con el banco).', p2);
+    event(s, { type: 'pair', p1, p2 });
+    checkWin(s, p2);
   }
 
   function advanceSpecial(s) {

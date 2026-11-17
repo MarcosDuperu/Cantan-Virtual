@@ -157,11 +157,12 @@
       s.board.vertices[v].hexes.includes(s.robber));
   }
 
-  function promotable(s, pid, v, free) {
+  // un caballero sube como máximo 1 nivel por turno (también con el Herrero)
+  function promotable(s, pid, v) {
     const k = s.knights[v];
     const P = P_(s, pid);
     if (!k || k.owner !== pid || k.level >= 3) return false;
-    if (!free && k.promTurn === s.turn) return false;
+    if (k.promTurn === s.turn) return false;
     if (k.level === 2 && P.improve.politics < 3) return false;
     return P.knightPieces[k.level + 1] > 0;
   }
@@ -181,7 +182,9 @@
   function isOpenRoad(s, e) {
     const r = s.roads[e];
     if (!r || r.type !== 'road') return false;
+    // un extremo es libre si no tiene un edificio, un caballero ni otra carretera de su dueño
     return s.board.edges[e].v.some(v => !(s.buildings[v] && s.buildings[v].owner === r.owner) &&
+      !(s.knights[v] && s.knights[v].owner === r.owner) &&
       !s.board.vertices[v].edges.some(o => o !== e && s.roads[o] && s.roads[o].owner === r.owner));
   }
 
@@ -675,7 +678,7 @@
       }
       case 'smith': {
         const vs = (a.vertices || []).slice(0, 2);
-        if (!vs.length || new Set(vs).size !== vs.length || !vs.every(v => promotable(s, pid, v, true))) return err('Elige 1 o 2 caballeros que puedan ascender');
+        if (!vs.length || new Set(vs).size !== vs.length || !vs.every(v => promotable(s, pid, v))) return err('Elige 1 o 2 caballeros que puedan ascender (1 nivel por turno)');
         vs.forEach(v => { const k = s.knights[v]; P.knightPieces[k.level]++; k.level++; P.knightPieces[k.level]--; k.promTurn = s.turn; });
         break;
       }

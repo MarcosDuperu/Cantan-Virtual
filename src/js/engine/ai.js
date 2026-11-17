@@ -53,6 +53,49 @@
     return vx.land && !s.buildings[v] && vx.adj.every(a => !s.buildings[a]);
   }
 
+  // Valor de expandir la red por la arista e: el mejor cruce libre cercano a su extremo lejano
+  function edgeScore(s, pid, e, prod, ship) {
+    const P = s.players[pid];
+    const ed = s.board.edges[e];
+    const far = ed.v.find(v => !s.buildings[v] || s.buildings[v].owner !== pid);
+    if (far === undefined) return null;
+    const seen = new Map([[far, 0]]);
+    const q = [far];
+    let score = 0;
+    while (q.length) {
+      const v = q.shift();
+      const d = seen.get(v);
+      if (freeSpot(s, v)) score = Math.max(score, vertexValue(s, pid, v, prod) / (1 + d * 0.9));
+      if (d >= 3 || (s.buildings[v] && s.buildings[v].owner !== pid)) continue;
+      for (const x of s.board.vertices[v].edges) {
+        if (s.roads[x]) continue;
+        const E = s.board.edges[x];
+        if (!(E.land || (E.sea && (ship || P.pieces.ship > 0)))) continue;
+        const o = E.v[0] === v ? E.v[1] : E.v[0];
+        if (!seen.has(o)) { seen.set(o, d + 1); q.push(o); }
+      }
+    }
+    return score;
+  }
+
+  // Navegantes: mover el barco del extremo de una línea si en otro lugar acerca más a un buen poblado
+  function shipMove(s, pid, prod) {
+    const ms = C.movableShips(s, pid);
+    let best = null;
+    for (const from of ms) {
+      const saved = s.roads[from];
+      delete s.roads[from];
+      const cur = edgeScore(s, pid, from, prod, true) || 0;
+      C.validRoutes(s, pid, 'ship').forEach(to => {
+        if (to === from) return;
+        const sc = edgeScore(s, pid, to, prod, true);
+        if (sc !== null && sc > cur + 2 && (!best || sc - cur > best.gain)) best = { from, to, gain: sc - cur };
+      });
+      s.roads[from] = saved;
+    }
+    return best ? { type: 'moveShip', from: best.from, to: best.to } : null;
+  }
+
   // Mejor primera arista para expandir la red hacia un buen lugar
   function routeTarget(s, pid, prod) {
     const P = s.players[pid];
@@ -61,26 +104,8 @@
     if (P.pieces.ship > 0) C.validRoutes(s, pid, 'ship').forEach(e => cands.push({ e, kind: 'ship' }));
     let best = null;
     for (const c of cands) {
-      const ed = s.board.edges[c.e];
-      // extremo lejano: el que no está conectado a nuestra red
-      const far = ed.v.find(v => !s.buildings[v] || s.buildings[v].owner !== pid);
-      if (far === undefined) continue;
-      const seen = new Map([[far, 0]]);
-      const q = [far];
-      let score = 0;
-      while (q.length) {
-        const v = q.shift();
-        const d = seen.get(v);
-        if (freeSpot(s, v)) score = Math.max(score, vertexValue(s, pid, v, prod) / (1 + d * 0.9));
-        if (d >= 3 || (s.buildings[v] && s.buildings[v].owner !== pid)) continue;
-        for (const e of s.board.vertices[v].edges) {
-          if (s.roads[e]) continue;
-          const E = s.board.edges[e];
-          if (!(E.land || (E.sea && P.pieces.ship > 0))) continue;
-          const o = E.v[0] === v ? E.v[1] : E.v[0];
-          if (!seen.has(o)) { seen.set(o, d + 1); q.push(o); }
-        }
-      }
+      let score = edgeScore(s, pid, c.e, prod, c.kind === 'ship');
+      if (score === null) continue;
       score += noise(P);
       if (c.kind === 'ship') score -= 0.3;
       if (!best || score > best.score) best = Object.assign({ score }, c);
@@ -373,7 +398,7 @@
           break;
         }
         case 'smith': {
-          const ks = Object.keys(s.knights).map(Number).filter(v => CK.promotable(s, pid, v, true)).slice(0, 2);
+          const ks = Object.keys(s.knights).map(Number).filter(v => CK.promotable(s, pid, v)).slice(0, 2);
           if (ks.length) a = { vertices: ks };
           break;
         }
@@ -1055,7 +1080,7 @@
       if (bt) return bt;
       // oferta a jugadores: una por turno
       const { m, n } = missing(P.resources, COST[g.what]);
-      if (n === 1 && mem.offerTurn !== s.turn && P.difficulty !== 'easy') {
+      if (n === 1 && mem.offerTurn !== s.turn && P.difficulty !== 'easy' && !s.pair) {
         const want = Object.keys(m)[0];
         const give = RES.filter(k => k !== want && P.resources[k] - (COST[g.what][k] || 0) >= 1)
           .sort((a, b) => P.resources[b] - P.resources[a])[0];
@@ -1086,6 +1111,10 @@
         mem.dumps++;
         return { type: 'bankTrade', give, get, count: 1 };
       }
+    }
+    if (C.MODES[s.mode].ships && P.difficulty !== 'easy') {
+      const mv = shipMove(s, pid, prod);
+      if (mv) return mv;
     }
     return { type: 'endTurn' };
   }

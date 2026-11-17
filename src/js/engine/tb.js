@@ -66,7 +66,7 @@
     const scen = mode.tb ? (SCENARIOS[o.scenario] && +o.scenario ? +o.scenario : 1) : 0;
     s.tb = {
       scenario: scen, events: !!o.events, harbormaster: !!o.harbormaster, two: s.players.length === 2,
-      pairs: !!mode.pairs, p2: null, setupCity: scen === 4 || scen === 5, noLongestRoad: scen === 5,
+      pairs: !!s.pairs, p2: null, setupCity: scen === 4 || scen === 5, noLongestRoad: scen === 5,
       eventDeck: [], lastEvent: null, epidemic: false, rolls: 0, firstRoll: null,
       harborHolder: null, goldBuys: 0, pending: null, pendingReturn: null, neutralReturn: null,
       builtThisPart: false
@@ -885,7 +885,7 @@
   }
   // fin de la parte de un jugador: votación de camellos, expulsión de bárbaros, pareja
   function endTurn(s, pid) {
-    if (C.MODES[s.mode].specialBuild) return null;
+    if (s.specialBuild) return null;
     if (s.phase !== 'main' && s.phase !== 'tbMove') return R().err('Ahora no puedes terminar el turno');
     if (sc(s) === 4 && Object.keys(s.tb.knights).some(e => s.tb.knights[e].owner === pid && castleEdges(s).has(+e) && knightTargets(s, +e).some(t => !castleEdges(s).has(t.edge))))
       return R().err('Antes de terminar, mueve tus caballeros fuera de los caminos del castillo');
@@ -1099,7 +1099,7 @@
           return ok();
         case 'moveKnight': case 'boostKnight': case 'moveWagon': case 'boostWagon': case 'driveBarbarian':
           return err('Primero pasa a la fase de movimiento');
-        case 'endTurn': { if (C.MODES[s.mode].specialBuild) return null; const r = endTurn(s, pid); return { result: r === true ? undefined : r }; }
+        case 'endTurn': { if (s.specialBuild) return null; const r = endTurn(s, pid); return { result: r === true ? undefined : r }; }
       }
       return null;
     }

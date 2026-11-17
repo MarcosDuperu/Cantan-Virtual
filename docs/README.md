@@ -15,8 +15,8 @@ Resúmenes de los reglamentos oficiales, con el estado de cada parte en el juego
 - Las notas siguen la **5.ª edición en inglés** (reglamentos 2020-2023 de catan.com), que es la base de la implementación.
 - En 2025 salió una **6.ª edición** con reglamentos nuevos; no se revisaron sus diferencias.
 - Las **ampliaciones 5-6 de 2022-2023** reemplazan la antigua *fase de construcción especial* por los
-  **jugadores en pareja** (ver [juego-base.md](juego-base.md)). El juego todavía usa la fase de
-  construcción especial.
+  **jugadores en pareja** (ver [juego-base.md](juego-base.md)). El juego usa los jugadores en pareja en todos
+  los modos 5-6; en el Clásico y en Ciudades y Caballeros la fase de construcción especial queda como opción.
 
 ## Fuentes (catan.com → Understand Catan → Game Rules)
 

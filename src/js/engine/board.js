@@ -134,6 +134,35 @@
     }
   }
 
+  // Colocación oficial (3-4): fichas A…R en espiral desde una esquina, en sentido antihorario hacia el centro,
+  // saltando el desierto. Se prueba desde las esquinas (al azar) hasta que ningún 6 u 8 queda junto a otro.
+  const SPIRAL_TOKENS = [5, 2, 6, 3, 8, 10, 9, 12, 11, 4, 8, 10, 9, 4, 5, 6, 3, 11];
+  function spiralNumbers(board, sequence) {
+    const land = board.hexes.filter(h => isLand(h.terrain));
+    const cx = land.reduce((a, h) => a + h.x, 0) / land.length, cy = land.reduce((a, h) => a + h.y, 0) / land.length;
+    const dist = h => Math.round(Math.hypot(h.x - cx, h.y - cy) / Math.sqrt(3));
+    const ang = h => Math.atan2(h.y - cy, h.x - cx);
+    const landN = h => neighborsOf(board, h).filter(n => isLand(n.terrain)).length;
+    const maxD = Math.max(...land.map(dist));
+    const corners = shuffle(land.filter(h => dist(h) === maxD && landN(h) === 3));
+    // antihorario en pantalla (y hacia abajo): ángulos decrecientes
+    const ccw = (from, a) => { let d = from - a; while (d < 0) d += 2 * Math.PI; while (d >= 2 * Math.PI) d -= 2 * Math.PI; return d; };
+    for (const start of corners) {
+      const order = [];
+      let a0 = ang(start);
+      for (let d = maxD; d >= 0; d--) {
+        const ring = land.filter(h => dist(h) === d);
+        ring.sort((x, y) => ccw(a0, ang(x)) - ccw(a0, ang(y)));
+        order.push(...ring);
+      }
+      let k = 0;
+      order.forEach(h => { h.number = h.terrain === 'desert' ? undefined : sequence[k++]; if (h.number === undefined) delete h.number; });
+      const bad = land.some(h => (h.number === 6 || h.number === 8) && neighborsOf(board, h).some(n => n.number === 6 || n.number === 8));
+      if (!bad) return true;
+    }
+    return false;
+  }
+
   // Coloca puertos repartidos en la costa de una isla
   function placePorts(board, types, islandId) {
     const coast = board.edges.filter(e => {
@@ -191,7 +220,7 @@
     finishLand(land, BASE_TERRAINS);
     const board = buildGraph(addSeaRing(land));
     const ids = board.hexes.filter(h => isLand(h.terrain) && h.terrain !== 'desert').map(h => h.id);
-    assignNumbers(board, ids, BASE_TOKENS);
+    if (!spiralNumbers(board, SPIRAL_TOKENS)) assignNumbers(board, ids, BASE_TOKENS);
     placePorts(board, BASE_PORTS);
     board.robber = board.hexes.find(h => h.terrain === 'desert').id;
     board.pirate = null;

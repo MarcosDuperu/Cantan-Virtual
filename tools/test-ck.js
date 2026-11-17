@@ -152,5 +152,33 @@ if (hx) {
   check(P.resources[comm] >= c0 + 1, 'una ciudad en ' + hx.terrain + ' produce ' + comm);
 }
 
+// --- Herrero: como máximo 1 ascenso por caballero y turno ---
+s = game(); p = s.current; P = s.players[p];
+C.apply(s, p, { type: 'roll', forced: [1, 2], forcedEvent: 'ship' });
+if (s.phase !== 'main') s.phase = 'main';
+const sv = myRoadVertex(s, p);
+s.knights[sv] = { owner: p, level: 1, active: false };
+P.knightPieces[1]--;
+give(P, { sheep: 1, ore: 1 });
+check(!C.apply(s, p, { type: 'promoteKnight', vertex: sv }).error && s.knights[sv].level === 2, 'ascender un caballero');
+P.progress.push({ type: 'smith', area: 'science', turn: 0 });
+P.improve.politics = 3;
+check(!!C.apply(s, p, { type: 'playProgress', card: 'smith', vertices: [sv] }).error, 'el Herrero no asciende otra vez un caballero que ya ascendió este turno');
+
+// --- Diplomático: una carretera con un caballero propio en el extremo no es abierta ---
+s = game(); p = s.current; P = s.players[p];
+const dipEdge = Object.keys(s.roads).map(Number).find(e => s.roads[e].owner === p && C.CK.isOpenRoad(s, e));
+if (dipEdge !== undefined) {
+  const free = s.board.edges[dipEdge].v.find(v => !s.buildings[v]);
+  s.knights[free] = { owner: p, level: 1, active: false };
+  check(!C.CK.isOpenRoad(s, dipEdge), 'una carretera que termina en un caballero propio no es abierta');
+}
+
+// --- 5-6: 18 mercancías de cada tipo ---
+{
+  const t = C.createGame({ mode: 'cities56', players: ['A', 'B', 'C', 'D', 'E'].map((name, i) => ({ name, color: 'c' + i })) });
+  check(['paper', 'cloth', 'coin'].every(k => t.bank[k] === 18), 'en 5-6 hay 18 mercancías de cada tipo');
+}
+
 console.log(fails ? fails + ' fallos' : 'Todas las pruebas pasaron');
 process.exit(fails ? 1 : 0);

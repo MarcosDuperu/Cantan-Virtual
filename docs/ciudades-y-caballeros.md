@@ -52,19 +52,18 @@
 
 ## Estado en el juego
 
-Implementado: todo lo anterior para 3-4 y 5-6 (este último con la fase de construcción especial, regla antigua).
+Implementado: todo lo anterior para 3-4 y 5-6 (con jugadores en pareja; la antigua fase de construcción especial
+queda como opción). En 5-6 hay 18 mercancías de cada tipo. El Herrero respeta el límite de 1 ascenso por caballero y
+turno, y el Diplomático no considera abierta una carretera que termina en un caballero de su dueño.
 Pruebas: `node tools/test-ck.js` y `node tools/simulate.js cities` / `cities56`.
 
-Diferencias o pendientes detectados al contrastar con el reglamento:
-1. **5-6: las mercancías deberían ser 18 por tipo**; el juego usa 15 (`commodities: 15` en `rules.js`, modo `cities56`).
-2. **Desertor**: el rival debería elegir qué caballero retira; el juego retira automáticamente el más débil.
+Decisiones que el reglamento deja al jugador y el juego toma solo:
+1. **Desertor**: el rival debería elegir qué caballero retira; el juego retira automáticamente el más débil.
    Si no tienes un caballero de ese nivel, el reglamento permite poner uno básico; el juego no lo hace.
-3. **Intriga** y **desalojo**: el dueño debería elegir a dónde mueve su caballero; el juego elige el primer cruce libre.
-4. **Puerto comercial**: tú eliges qué recurso das a cada rival y cada rival elige qué mercancía entrega;
+2. **Intriga** y **desalojo**: el dueño debería elegir a dónde mueve su caballero; el juego elige el primer cruce libre.
+3. **Puerto comercial**: tú eliges qué recurso das a cada rival y cada rival elige qué mercancía entrega;
    el juego lo hace automático (das el recurso más abundante, recibes su mercancía más abundante).
-5. **Empate de defensores**: cada empatado debería elegir el mazo de progreso; el juego elige el de su mejora más alta.
-6. **Herrero**: el reglamento limita a 1 ascenso por caballero y turno; la carta no lo comprueba.
-7. **Diplomático**: una carretera con un caballero propio en el extremo no es "abierta"; el juego no considera caballeros.
-8. **Quinta carta de progreso**: el reglamento solo dice "nunca más de 4". El juego obliga a descartar fuera de
+4. **Empate de defensores**: cada empatado debería elegir el mazo de progreso; el juego elige el de su mejora más alta.
+5. **Quinta carta de progreso**: el reglamento solo dice "nunca más de 4". El juego obliga a descartar fuera de
    tu turno y te deja jugarla en tu turno antes de terminarlo (interpretación de ediciones anteriores).
-9. **Ciudad saqueada**: el juego elige automáticamente la de menor producción.
+6. **Ciudad saqueada**: el juego elige automáticamente la de menor producción.

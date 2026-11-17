@@ -46,8 +46,11 @@
   <li><b>Puertos:</b> 11 (5 genéricos 3:1 y 6 especiales 2:1, con dos de lana).</li>
   <li><b>Banco:</b> 24 cartas de cada recurso.</li>
   <li><b>Cartas de desarrollo:</b> 34 (20 caballeros, 5 puntos, 3 de cada carta de progreso).</li>
-  <li><b>Fase de construcción especial:</b> cuando un jugador termina su turno, cada uno de los demás, en orden,
-  puede construir y comprar cartas de desarrollo (sin comerciar ni jugar cartas). Así hay menos espera entre turnos.</li>
+  <li><b>Jugadores en pareja</b> (regla de 2022): el jugador en turno es el <b>jugador 1</b>: tira los dados, comercia con todos,
+  construye y juega 1 carta. Después juega el <b>jugador 2</b> (el tercero a su izquierda): <b>solo comercia con el banco</b>,
+  construye y juega 1 carta; también puede ganar en ese momento. Luego el turno pasa al siguiente jugador.</li>
+  <li><b>Fase de construcción especial</b> (regla anterior, opcional): cuando un jugador termina su turno, cada uno de los demás,
+  en orden, puede construir y comprar cartas de desarrollo (sin comerciar ni jugar cartas).</li>
   <li>Se sigue ganando con <b>10 PV</b>, y solo durante tu propio turno.</li></ul>`;
 
   const SEAFARERS = `
@@ -129,8 +132,11 @@
   const CITIES56 = `
   <h2>Ciudades y Caballeros — ampliación 5-6 jugadores</h2>
   <ul><li>Tablero de 30 hexágonos de la ampliación 5-6, con 11 puertos.</li>
-  <li>Banco de 24 cartas por recurso y 15 por mercancía.</li>
-  <li><b>Fase de construcción especial:</b> al terminar cada turno, los demás jugadores pueden construir en orden
+  <li>Banco de 24 cartas por recurso y 18 por mercancía.</li>
+  <li><b>Jugadores en pareja</b> (regla de 2023): después del jugador en turno juega el <b>jugador 2</b> (el tercero a su izquierda),
+  que puede hacer todo (construir, caballeros, mejoras, cartas de progreso) pero <b>solo comercia con el banco</b>. Un caballero activado
+  en esa parte puede actuar en el siguiente turno de su dueño.</li>
+  <li><b>Fase de construcción especial</b> (regla anterior, opcional): al terminar cada turno, los demás jugadores pueden construir en orden
   (incluidos caballeros, murallas y mejoras de ciudad), sin comerciar ni jugar cartas.</li>
   <li>Se gana con 13 PV.</li></ul>`;
 

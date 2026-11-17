@@ -44,5 +44,5 @@
 - Diferencias:
   - El mapa no es el oficial (que tiene 12-13 posiciones de islas y difiere entre 3 y 4 jugadores).
   - Los puertos solo están en la isla principal.
-  - La IA no mueve barcos.
+  - La IA mueve un barco solo cuando en otro lugar queda claramente más cerca de un buen sitio para poblar.
 - Pendiente: mapas oficiales, escenarios 2-9 y ampliación 5-6.

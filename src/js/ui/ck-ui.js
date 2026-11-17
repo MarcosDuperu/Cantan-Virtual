@@ -393,7 +393,7 @@
       case 'engineer': return startPick('vertex', CK.citiesOf(v, me).filter(x => !v.buildings[x].wall), 1, 'elige la ciudad para la muralla gratis', p => ({ vertex: p[0] }));
       case 'medicine': return startPick('vertex', C.validCities(v, me), 1, 'elige el poblado a mejorar (2 mineral + 1 cereal)', p => ({ vertex: p[0] }));
       case 'smith': {
-        const ks = Object.keys(v.knights).map(Number).filter(x => CK.promotable(v, me, x, true));
+        const ks = Object.keys(v.knights).map(Number).filter(x => CK.promotable(v, me, x));
         return startPick('vertex', ks, Math.min(2, ks.length), 'elige hasta 2 caballeros para ascender', p => ({ vertices: p }), true);
       }
       case 'bishop':

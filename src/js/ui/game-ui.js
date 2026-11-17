@@ -168,6 +168,8 @@
           if (g) { this.toast('Recibes ' + resRow(g, 16), 'ok', true); C.Sound.play('coin'); }
         } else if (ev.type === 'playDev') {
           this.reveal(C.CardArt.devCard(ev.card), (ev.pid === this.me ? 'Juegas ' : v.players[ev.pid].name + ' juega ') + C.DEV_NAME[ev.card]);
+        } else if (ev.type === 'pair') {
+          if (ev.p2 === this.me) { C.Sound.play('turn'); this.toast('¡Juegas como jugador 2 de la pareja!', 'big'); }
         } else if (ev.type === 'win') C.Sound.play('win');
       }
     }
@@ -257,13 +259,14 @@
         case 'roadBuilding': return v.current === me ? `Construye ${v.freeRoads} carretera(s) gratis` : `${who} construye carreteras gratis…`;
         case 'specialBuild': return v.specialBuilder === me ? 'Fase de construcción especial: puedes construir o comprar' : `Fase de construcción especial: ${this.pname(v.specialBuilder)}`;
         case 'main':
-          if (v.current !== me) return `Turno de ${who}`;
+          if (v.current !== me) return v.pair ? `${who} juega como jugador 2 de la pareja…` : `Turno de ${who}`;
           if (this.mode === 'road') return 'Elige dónde construir la carretera (Esc para cancelar)';
           if (this.mode === 'ship') return 'Elige dónde construir el barco (Esc para cancelar)';
           if (this.mode === 'settlement') return 'Elige dónde construir el poblado (Esc para cancelar)';
           if (this.mode === 'city') return 'Elige el poblado a mejorar (Esc para cancelar)';
           if (this.mode === 'moveFrom') return 'Elige el barco a mover';
           if (this.mode === 'moveTo') return 'Elige el nuevo lugar del barco';
+          if (v.pair) return 'Eres el <b>jugador 2</b> de la pareja: comercia con el banco, construye y juega cartas';
           return 'Tu turno: construye, comercia o termina el turno';
         case 'ended': return `¡${who} ganó la partida!`;
       }
@@ -587,7 +590,7 @@
       const st = { tab: 'bank', give: null, get: null, n: 1, offerGive: zero(), offerGet: zero(), to: 'all' };
       const draw = (m) => {
         const others = v.players.filter(p => p.id !== me);
-        const bankOnly = (this.isPE() && v.pe.p2) || (this.isTB() && v.tb.p2);
+        const bankOnly = !!v.pair || (this.isPE() && v.pe.p2) || (this.isTB() && v.tb.p2);
         if (bankOnly) st.tab = 'bank';
         let html = `<h2>Comerciar</h2><div class="tabs"><button class="tab ${st.tab === 'bank' ? 'on' : ''}" data-tab="bank">${this.isPE() ? 'Banco' : 'Banco y puertos'}</button>
           ${bankOnly ? '' : `<button class="tab ${st.tab === 'players' ? 'on' : ''}" data-tab="players">Con jugadores</button>`}</div>`;
