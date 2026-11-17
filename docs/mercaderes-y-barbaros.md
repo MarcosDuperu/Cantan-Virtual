@@ -72,5 +72,34 @@ Fuente: reglamento oficial 2015 (Variant Rules & Campaign Scenarios) y su amplia
 
 ## Estado en el juego
 
-En curso (en pausa): motor, tableros e IA hechos; falta conectar la interfaz, el menú, las pruebas y la documentación.
-Detalle en [estado-mercaderes-y-barbaros.md](estado-mercaderes-y-barbaros.md). El "ladrón amistoso" ya existe como opción en todos los modos.
+Implementado: los 5 escenarios en 3-4 jugadores y en 5-6 con jugadores en pareja, y las variantes (cartas de evento,
+Señor del puerto, ladrón amistoso y Catan para dos), que también se pueden usar en el Clásico. Con 2 jugadores solo se
+juegan el Clásico y los escenarios 1 y 2. Motor en `src/js/engine/tb.js`, interfaz en `src/js/ui/tb-ui.js` y pruebas en
+`tools/test-tb.js`.
+
+### Decisiones propias (el reglamento no las da en el texto)
+
+- **Tren de equipaje (escenario 5):**
+
+  | Nivel | Movimientos | Oro por entrega | Ahuyenta con | Coste |
+  |---|---|---|---|---|
+  | 1 | 4 | 1 | — | — |
+  | 2 | 5 | 2 | 6 | madera + cereal |
+  | 3 | 5 | 3 | 5-6 | lana + cereal + mineral |
+  | 4 | 6 | 4 | 5-6 | madera + cereal + 2 mineral |
+  | 5 | 6 | 5 | 4-6 | lana + 2 cereal + 2 mineral (+1 PV) |
+
+- **Formas de los mapas:** ríos trazados al azar desde la costa hacia el interior, posición de caladeros, castillo y
+  desierto, hexágonos comerciales en esquinas alternas y bárbaros iniciales al azar en caminos.
+- **Fichas de las pilas de mercancías:** mitad y mitad de cada tipo; en 5-6 las pilas de cantera y vidriería son 1,5
+  veces más grandes.
+- **Votación de camellos:** se vota por turnos, pero en secreto: cada uno ve solo su voto hasta que se resuelve.
+
+### Simplificaciones
+
+- Terremoto: la carretera dañada se elige sola (un extremo de la red).
+- Intriga: el hexágono se elige solo (el que más amenaza tus edificios).
+- Fusión de caravanas: la otra caravana termina.
+- Los neutrales construyen la misma pieza que tú; no se construye para ellos con las carreteras gratis.
+- El oro no se ofrece en el comercio entre jugadores.
+- En 5-6, el jugador 2 no puede comprar con oro en el escenario 5 (el texto lo dice; la tabla resumen dice lo contrario).

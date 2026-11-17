@@ -134,7 +134,73 @@
   (incluidos caballeros, murallas y mejoras de ciudad), sin comerciar ni jugar cartas.</li>
   <li>Se gana con 13 PV.</li></ul>`;
 
-  const TRADERS = `<h2>Mercaderes y Bárbaros</h2><p>Próximamente. Esta expansión se añadirá cuando apruebes Ciudades y Caballeros.</p>`;
+  const TRADERS = `
+  <h2>Mercaderes y Bárbaros (2-6 jugadores)</h2>
+  <p>Cinco escenarios de campaña que se juegan sobre el juego básico (con sus cartas de desarrollo, salvo donde se indica).
+  Se gana con los PV del escenario, en tu propio turno. Las variantes (cartas de evento, Señor del puerto, Catan para dos)
+  se describen en la pestaña <b>Variantes</b> y también se pueden usar en el Clásico.</p>
+  <table class="rules-table"><tr><th>#</th><th>Escenario</th><th>Jugadores</th><th>PV</th></tr>
+  <tr><td>1</td><td>Los pescadores de Catan</td><td>2-6</td><td>10</td></tr>
+  <tr><td>2</td><td>Los ríos de Catan</td><td>2-6</td><td>10</td></tr>
+  <tr><td>3</td><td>Las caravanas</td><td>3-6</td><td>12</td></tr>
+  <tr><td>4</td><td>Ataque bárbaro</td><td>3-6</td><td>12</td></tr>
+  <tr><td>5</td><td>Mercaderes y bárbaros</td><td>3-6</td><td>13</td></tr></table>
+  <h3>1. Los pescadores de Catan</h3>
+  <ul><li>Un <b>lago</b> reemplaza al desierto: produce pescado con 2, 3, 11 y 12. En la costa hay 6 <b>caladeros</b> (4, 5, 6, 8, 9, 10)
+  que tocan 3 cruces cada uno.</li>
+  <li>Al salir su número, cada poblado junto a un caladero o al lago roba 1 ficha de pescado de la bolsa (ciudad, 2). Las fichas valen 1, 2 o 3 peces.
+  Puedes tener como máximo 7 fichas. No son recursos: no se descartan con el 7 ni se roban.</li>
+  <li>Acciones (en tu turno, después de tirar; sin cambio): <b>2</b> peces sacan al ladrón del tablero, <b>3</b> roban 1 recurso a un jugador,
+  <b>4</b> toman 1 recurso del banco, <b>5</b> construyen una carretera gratis y <b>7</b> dan una carta de desarrollo.</li>
+  <li><b>La bota vieja:</b> está en la bolsa. Quien la saca necesita 1 PV más para ganar. Después de tirar puede pasársela a un jugador con
+  tantos o más PV.</li>
+  <li>El ladrón empieza fuera del tablero.</li></ul>
+  <h3>2. Los ríos de Catan</h3>
+  <ul><li>Dos <b>ríos</b> cruzan la isla y desembocan en <b>pantanos</b> (sin número; el ladrón empieza en uno).</li>
+  <li>Cada carretera o poblado que construyes junto a un río te da <b>1 moneda</b> de oro (mejorar a ciudad no da).</li>
+  <li><b>Puentes</b> (2 arcilla + 1 madera, máximo 3): solo en los sitios de puente sobre el río. Cuentan como carretera y dan <b>3 monedas</b>.</li>
+  <li>Dos veces por turno puedes cambiar <b>2 monedas por 1 recurso</b> del banco. También puedes vender 4 recursos iguales (3 con puerto genérico) por 1 moneda.</li>
+  <li>El jugador con más monedas (si es el único) gana <b>1 PV</b>; el o los que menos tienen pierden <b>2 PV</b>. Las monedas no se roban.</li></ul>
+  <h3>3. Las caravanas</h3>
+  <ul><li>En el centro hay un <b>oasis</b> con 3 flechas, de las que salen 3 caravanas de camellos por los caminos (sin bifurcarse).</li>
+  <li>Al terminar un turno en el que alguien construyó un poblado o una ciudad, se <b>vota</b>: cada jugador elige hacia dónde avanza el camello
+  y ofrece lana y cereal. Gana la opción con mayoría; los votos se pagan al banco. Si nadie ofrece nada, decide quien terminó el turno.</li>
+  <li>Un poblado o ciudad entre <b>2 camellos</b> vale <b>+1 PV</b>. Las carreteras con camello cuentan <b>doble</b> para la Gran Ruta.</li></ul>
+  <h3>4. Ataque bárbaro</h3>
+  <ul><li>El <b>castillo</b> está en el centro. La segunda pieza inicial es una <b>ciudad</b>. No hay ladrón ni Gran Ejército: un 7 solo obliga a descartar.</li>
+  <li>Cada poblado nuevo (o ciudad mejorada) provoca <b>3 desembarcos</b>: se tiran 3 números distintos (sin 7) y llega 1 bárbaro a cada hexágono
+  costero con ese número. Con <b>3 bárbaros</b> el hexágono queda <b>conquistado</b>: no produce, y un edificio rodeado solo de hexágonos conquistados
+  no da puntos.</li>
+  <li>Mazo propio que se juega al comprarlo: <b>Caballería</b> (un caballero en un camino del castillo), <b>Caballero veloz</b> (en cualquier camino),
+  <b>Traición</b> (2 oro y mueves 2 bárbaros) e <b>Intriga</b> (un bárbaro pasa a ser tu prisionero).</li>
+  <li><b>Fase de movimiento:</b> cada caballero recorre hasta 3 caminos (5 pagando 1 cereal). Deben salir de los caminos del castillo.</li>
+  <li>Al terminar tu turno, en cada hexágono costero rodeado por <b>más caballeros que bárbaros</b>, estos son expulsados y se reparten como
+  prisioneros (<b>2 prisioneros = 1 PV</b>; quien queda sin prisionero recibe 3 oro). Luego un dado elige una orientación de caminos y los
+  caballeros en ella caen (cada uno da 3 oro a su dueño).</li>
+  <li>Oro: 2 oro → 1 recurso (2 veces por turno); 4 iguales (3 con puerto genérico) → 1 oro.</li></ul>
+  <h3>5. Mercaderes y bárbaros</h3>
+  <ul><li>Hay 3 hexágonos comerciales: el <b>castillo</b>, la <b>cantera</b> y la <b>vidriería</b>, con una plaza en el centro. No hay ladrón ni Gran Ruta.
+  Se empieza con un poblado y una ciudad. Si sale 2 o 12 se vuelve a tirar.</li>
+  <li>Cada jugador tiene una <b>carreta</b>. En la fase de movimiento recorre caminos: cuesta 2 movimientos sin carretera, 1 por tu carretera,
+  1 + 1 oro (para su dueño) por carretera ajena y +2 si hay un bárbaro. Con 1 cereal gana 2 movimientos (una vez por turno).
+  En una plaza se detiene.</li>
+  <li><b>Mercancías:</b> en cada plaza cargas una (si vas vacío) y la llevas a su destino: vidrio y mármol al castillo, herramientas a la cantera
+  y arena a la vidriería. Cada entrega da <b>1 PV</b> y oro según tu tren de equipaje.</li>
+  <li><b>Tren de equipaje</b> (5 niveles): más movimientos, más oro por entrega y la posibilidad de <b>ahuyentar bárbaros</b> con el dado
+  (nivel 2: un 6; 3-4: 5-6; 5: 4-6). El nivel 5 vale 1 PV.</li>
+  <li>Hay 3 <b>bárbaros</b> en caminos. El mazo propio tiene <b>Caballero</b> (mueves un bárbaro y robas a quien tenga carretera ahí),
+  <b>Construcción de carreteras</b>, <b>Viaje rápido</b> (tu carreta vuelve a moverse) y 3 cartas de 1 PV.</li></ul>
+  <h3>2 jugadores</h3>
+  <p>Con 2 jugadores se usa <b>Catan para dos</b> (ver Variantes) y solo se pueden jugar los escenarios 1 y 2.</p>
+  <h3>Ampliación 5-6: jugadores en pareja</h3>
+  <ul><li>Tableros más grandes (2 lagos, más pantanos, 2 castillos en el escenario 4, 3 canteras y 3 vidrierías en el 5) y banco de 24 cartas.</li>
+  <li>El <b>jugador 1</b> (el de turno) tira, comercia con todos, construye y mueve. Después juega el <b>jugador 2</b> (el tercero a su izquierda):
+  <b>solo comercia con el banco</b>, construye y mueve sus caballeros o su carreta. También puede ganar en ese momento.</li>
+  <li>Las votaciones de camellos y la expulsión de bárbaros se resuelven al terminar cada una de las dos partes.</li>
+  <li>En el escenario 5 no se repiten el 2 y el 12, y el jugador 2 no puede comprar con oro.</li></ul>
+  <p class="muted">Adaptación: la forma de los ríos, la posición de caladeros, castillo y hexágonos comerciales, el reparto de mercancías y la
+  tabla del tren de equipaje son propios (el reglamento solo los muestra en las ilustraciones). El terremoto elige solo la carretera dañada,
+  la Intriga elige el hexágono que más te amenaza y el oro no se ofrece en el comercio entre jugadores.</p>`;
   const EXPLORERS = `
   <h2>Piratas y Exploradores (2-6 jugadores)</h2>
   <p>Una campaña de 5 escenarios. Empiezas en la isla del juego básico; al este hay dos zonas <b>sin descubrir</b>
@@ -212,6 +278,20 @@
   <ul><li><b>Puntos para ganar:</b> puedes cambiar los PV necesarios para ganar (partidas cortas o largas).</li>
   <li><b>Ladrón amistoso</b> (variante oficial de <i>Mercaderes y Bárbaros</i>): el ladrón no puede colocarse
   junto a un jugador con 2 PV o menos, ni se le puede robar.</li>
+  <li><b>Cartas de evento</b> (<i>Mercaderes y Bárbaros</i>; Clásico y Mercaderes y Bárbaros): en vez de tirar los dados se roba una carta
+  del mazo de 36. Cada carta indica el número que produce y, a veces, un evento: <i>¡El ladrón ataca!</i> (el 7), <i>Epidemia</i>
+  (las ciudades producen 1), <i>Terremoto</i> (cada jugador tiene 1 carretera dañada hasta repararla con madera + arcilla),
+  <i>Buenos vecinos</i>, <i>Torneo</i>, <i>Ventaja comercial</i>, <i>Mar en calma</i>, <i>Huye el ladrón</i>, <i>Ayuda vecinal</i>,
+  <i>Conflicto</i> y <i>Año de abundancia</i>. Pasa el mouse sobre la carta para ver su efecto. Cuando sale <i>Año nuevo</i>
+  (a 5 cartas del final) se baraja todo otra vez.</li>
+  <li><b>Señor del puerto</b> (Clásico y Mercaderes y Bárbaros): cada poblado en un puerto da 1 punto de puerto y cada ciudad 2.
+  El primero con 3 puntos recibe la carta (<b>2 PV</b>) y la pierde si otro lo supera. Se necesita <b>1 PV más</b> para ganar.</li>
+  <li><b>Catan para dos</b> (automática con 2 jugadores en el Clásico y en los escenarios 1 y 2): hay 2 jugadores <b>neutrales</b>
+  con un poblado cada uno. Se tira <b>dos veces</b> por turno (la segunda debe dar otro número). Cada vez que construyes una carretera
+  o un poblado, construyes también uno gratis para un neutral. Cada jugador tiene <b>fichas de comercio</b> (5 al empezar; +1 por cada
+  poblado en la costa y +2 junto al desierto; descartar un caballero jugado da 2) para un <b>comercio forzoso</b> (robas 2 cartas
+  al rival y le das 2) o para <b>mandar al ladrón al desierto</b>. Cuestan 1 ficha si vas por detrás o empatado y 2 si vas por delante.
+  En los Pescadores se usa pescado en vez de fichas.</li>
   <li><b>Velocidad de la máquina:</b> qué tan rápido juegan los rivales controlados por la máquina.</li></ul>`;
 
   C.RULES_TEXT = { classic: CLASSIC + VARIANTS, classic56: EXTENDED, extended: EXTENDED, seafarers: SEAFARERS, cities: CITIES, cities56: CITIES56,

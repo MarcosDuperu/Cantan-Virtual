@@ -1,5 +1,5 @@
 // Simula partidas completas solo con bots para validar el motor.
-// Uso: node tools/simulate.js [modo] [partidas] [jugadores] [escenario de Piratas y Exploradores 1-5]
+// Uso: node tools/simulate.js [modo] [partidas] [jugadores] [escenario] [variantes separadas por comas: events,harbormaster,friendlyRobber]
 require('../src/js/engine/board.js');
 require('../src/js/engine/rules.js');
 require('../src/js/engine/ck.js');

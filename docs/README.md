@@ -4,11 +4,11 @@ Resúmenes de los reglamentos oficiales, con el estado de cada parte en el juego
 
 | Archivo | Contenido | Estado en el juego |
 |---|---|---|
-| [juego-base.md](juego-base.md) | Juego básico y ampliación 5-6 | Implementado |
+| [juego-base.md](juego-base.md) | Juego básico y ampliación 5-6 | Implementado (2-6) |
 | [navegantes.md](navegantes.md) | Navegantes y su ampliación 5-6 | 1 escenario (3-4 jugadores) |
 | [ciudades-y-caballeros.md](ciudades-y-caballeros.md) | Ciudades y Caballeros y su ampliación 5-6 | Implementado (3-6) |
 | [piratas-y-exploradores.md](piratas-y-exploradores.md) | Piratas y Exploradores y su ampliación 5-6 | Implementado (2-6, 5 escenarios) |
-| [mercaderes-y-barbaros.md](mercaderes-y-barbaros.md) | Mercaderes y Bárbaros y su ampliación 5-6 | En curso, en pausa: ver [estado-mercaderes-y-barbaros.md](estado-mercaderes-y-barbaros.md) |
+| [mercaderes-y-barbaros.md](mercaderes-y-barbaros.md) | Mercaderes y Bárbaros y su ampliación 5-6 | Implementado (2-6, 5 escenarios y variantes) |
 
 ## Ediciones
 

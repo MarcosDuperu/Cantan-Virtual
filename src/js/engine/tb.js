@@ -590,7 +590,7 @@
     if (choice === null) { choice = pref(V.finisher); how = 'decide ' + name(s, V.finisher); }
     V.order.forEach(p => { if (V.bids[p]) R().pay(s, p, V.bids[p]); });
     placeCamel(s, opts[choice]);
-    R().log(s, 'Se coloca un camello (' + how + '; ' + T + ' votos en total).');
+    R().log(s, 'Se coloca un camello (' + how + '). Votos: ' + V.order.map(p => name(s, p) + ' ' + votes(p)).join(', ') + '.');
     s.tb.vote = null;
   }
 
@@ -935,7 +935,7 @@
       const opts = camelOptions(s);
       V.bids[pid] = bid;
       V.prefs[pid] = opts[a.option] ? a.option | 0 : 0;
-      R().log(s, name(s, pid) + ' vota con ' + (bid.sheep + bid.wheat) + ' carta(s).', pid);
+      R().log(s, name(s, pid) + ' vota en secreto.', pid);
       V.idx++;
       if (V.idx >= V.order.length) {
         const cont = V.cont;
@@ -1388,7 +1388,11 @@
     if (v.tb.stacks) Object.keys(v.tb.stacks).forEach(k => { v.tb.stacks[k] = s.tb.stacks[k].length; });
     delete v.tb.devDiscard;
     delete v.tb.postQueue;
-    if (s.tb.vote) v.tb.vote.bids = Object.fromEntries(Object.entries(s.tb.vote.bids));
+    // los votos son secretos hasta que se resuelve la votación
+    if (s.tb.vote) {
+      v.tb.vote.bids = s.tb.vote.bids[pid] ? { [pid]: Object.assign({}, s.tb.vote.bids[pid]) } : {};
+      v.tb.vote.prefs = s.tb.vote.prefs[pid] !== undefined ? { [pid]: s.tb.vote.prefs[pid] } : {};
+    }
   }
 
   // quién debe actuar en las fases de varios jugadores (para la máquina)

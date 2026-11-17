@@ -23,14 +23,16 @@ El ícono está en `build/icon.svg`; para regenerar los PNG: `npx electron tools
 
 ## Modos
 
-- **Clásico** (3-4 jugadores, 10 PV; 5-6 con la ampliación oficial)
+- **Clásico** (3-4 jugadores, 10 PV; 5-6 con la ampliación oficial y 2 con «Catan para dos»)
 - **Navegantes: Hacia nuevas costas** (barcos, islas, pirata, oro, 14 PV; 3-4 jugadores)
 - **Ciudades y Caballeros** (13 PV; 3-4 jugadores, 5-6 con su ampliación): mercancías, dado de eventos,
   bárbaros, caballeros, murallas, mejoras de ciudad, metrópolis y 54 cartas de progreso
 - **Piratas y Exploradores** (5 escenarios de 8 a 17 PV; 2 jugadores con piezas neutrales, 3-4, y 5-6 con jugadores
   en pareja): mar sin descubrir, barcos con puntos de movimiento, colonos, oro, barco pirata, guaridas piratas,
   pescado y especias para el Consejo de Catan
-- Mercaderes y Bárbaros: próximamente
+- **Mercaderes y Bárbaros** (5 escenarios de 10 a 13 PV; 2-4 jugadores y 5-6 con jugadores en pareja): Pescadores,
+  Ríos, Caravanas, Ataque bárbaro y Mercaderes y bárbaros
+- **Variantes** (Clásico y Mercaderes y Bárbaros): cartas de evento, Señor del puerto y ladrón amistoso
 
 ## LAN
 
@@ -47,7 +49,10 @@ Si un jugador se desconecta, la máquina sigue jugando por él.
 - `server/` relé WebSocket y descubrimiento UDP
 - `src/js/engine/ck.js` reglas de Ciudades y Caballeros; `src/js/ui/ck-ui.js` su interfaz
 - `src/js/engine/pe.js` reglas de Piratas y Exploradores; `src/js/ui/pe-ui.js` su interfaz
-- `tools/simulate.js` simula partidas entre bots: `npm run sim -- cities 20` (modos: classic, extended, seafarers, cities, cities56, explorers, explorers56).
-  Para Piratas y Exploradores el escenario va al final: `npm run sim -- explorers 20 4 5`
+- `src/js/engine/tb.js` reglas de Mercaderes y Bárbaros y sus variantes; `src/js/ui/tb-ui.js` su interfaz
+- `tools/simulate.js` simula partidas entre bots: `npm run sim -- cities 20` (modos: classic, extended, seafarers, cities, cities56, explorers, explorers56, traders, traders56).
+  Para Piratas y Exploradores y Mercaderes y Bárbaros el escenario va después de los jugadores: `npm run sim -- explorers 20 4 5`;
+  las variantes, al final: `npm run sim -- traders 10 4 1 events,harbormaster` o `npm run sim -- classic 10 2 0 events`
 - `tools/test-ck.js` pruebas de reglas de Ciudades y Caballeros: `node tools/test-ck.js`
 - `tools/test-pe.js` pruebas de reglas de Piratas y Exploradores: `node tools/test-pe.js`
+- `tools/test-tb.js` pruebas de reglas de Mercaderes y Bárbaros y sus variantes: `node tools/test-tb.js`

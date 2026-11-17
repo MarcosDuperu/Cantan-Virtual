@@ -385,7 +385,7 @@
       const V = b.vertices[v], h = b.hexes[o.hex];
       const x = (V.x * 0.7 + h.x * 0.3) * S, y = (V.y * 0.7 + h.y * 0.3) * S;
       const ang = Math.atan2(V.y - h.y, V.x - h.x) * 180 / Math.PI;
-      out += `<path transform="translate(${x},${y}) rotate(${ang})" d="M-5,-5 L5,0 L-5,5Z" fill="#c0281c" stroke="#5a1a10" stroke-width=".8"/>`;
+      out += `<path transform="translate(${x},${y}) rotate(${ang})" d="M-7,-7 L7,0 L-7,7Z" fill="#c0281c" stroke="#fff" stroke-width="1.5"/>`;
     }));
     // camellos
     Object.keys(T.camels || {}).forEach(e => {

@@ -96,9 +96,13 @@
         if (T.p2) return 'Eres el <b>jugador 2</b>: comercia con el banco y construye';
         if (T.two && T.rolls === 1) return null;
         return null;
-      case 'roll':
-        if (mine && T.two && T.rolls === 1) return 'Catan para dos: haz tu segunda tirada (debe dar otro número)';
-        return null;
+      case 'roll': {
+        const what = T.events ? 'roba una carta de evento' : 'tira los dados';
+        if (!mine) return `Esperando a que ${who} ${T.events ? 'robe una carta de evento' : 'tire los dados'}…`;
+        if (T.two && T.rolls === 1) return 'Catan para dos: ' + what + ' otra vez' + (T.events ? '' : ' (debe dar otro número)');
+        const pre = scn(v) === 4 ? '' : ' (o juega un Caballero antes)';
+        return what.charAt(0).toUpperCase() + what.slice(1) + pre;
+      }
     }
     return null;
   };
@@ -187,7 +191,7 @@
         if (sel.from === undefined) { sel.from = id; this.render(); return true; }
         sel.moves.push({ from: sel.from, to: id });
         sel.from = undefined;
-        if (sel.moves.length >= 2 || !v.board.hexes.some(h => h.coastal && h.barbs && !sel.moves.some(m => m.from === h.id))) { this.send({ type: 'treason', moves: sel.moves }); this.tbSel = null; }
+        if (sel.moves.length >= 2 || !v.board.hexes.some(h => h.coastal && h.barbs && !sel.moves.some(m => m.from === h.id))) { this.tbSel = null; this.send({ type: 'treason', moves: sel.moves }); }
         else this.render();
         return true;
       }
@@ -195,21 +199,21 @@
         if (kind !== 'edge') return true;
         const sel = this.tbSel = this.tbSel || {};
         if (sel.barb === undefined) { if (T.barbs.includes(id)) { sel.barb = id; this.render(); } return true; }
-        this.send({ type: 'moveBarbarian', from: sel.barb, to: id });
         this.tbSel = null;
+        this.send({ type: 'moveBarbarian', from: sel.barb, to: id });
         return true;
       }
       case 'tbMove': {
         const sel = this.tbSel = this.tbSel || {};
         if (scn(v) === 4 && kind === 'edge') {
           if (sel.knight !== undefined && T.knights[sel.knight] && id !== sel.knight && !T.knights[id]) {
-            this.send({ type: 'moveKnight', from: sel.knight, to: id, boost: !!sel.boost });
             this.tbSel = null;
+            this.send({ type: 'moveKnight', from: sel.knight, to: id, boost: !!sel.boost });
           } else if (T.knights[id] && T.knights[id].owner === me) { this.tbSel = { knight: id }; this.render(); }
           return true;
         }
         if (scn(v) === 5) {
-          if (sel.drive !== undefined && kind === 'edge') { this.send({ type: 'driveBarbarian', edge: sel.drive, to: id }); this.tbSel = null; return true; }
+          if (sel.drive !== undefined && kind === 'edge') { this.tbSel = null; this.send({ type: 'driveBarbarian', edge: sel.drive, to: id }); return true; }
           if (kind === 'edge' && T.barbs.includes(id)) { this.tbSel = { drive: id }; this.render(); return true; }
           if (kind === 'vertex') this.send({ type: 'moveWagon', to: id });
           return true;
@@ -287,6 +291,7 @@
       <div class="rc-art">${icon('fish', 42)}</div><div class="rc-name">Peces ${P.fish.reduce((a, b) => a + b, 0)}</div><div class="rc-count">${P.fish.length}</div></div>`;
     if (T.two && scn(v) !== 1) html += `<div class="rcard r-token ${P.tokens ? '' : 'empty'}" title="Fichas de comercio (Catan para dos)"><div class="rc-art" style="font-size:34px">🎫</div><div class="rc-name">Fichas</div><div class="rc-count">${P.tokens}</div></div>`;
     if (html) this.$.hand.insertAdjacentHTML('beforeend', html);
+    this.$.hand.classList.toggle('compact', scn(v) === 4 || scn(v) === 5);
     if (scn(v) === 4 || scn(v) === 5) {
       const extra = [];
       if (scn(v) === 4) extra.push(`<div class="bcard" title="Prisioneros: cada 2 valen 1 PV"><b>Prisioneros</b><span>⛓ ${P.prisoners} (${Math.floor(P.prisoners / 2)} PV)</span><span>Caballeros: ${P.knightsLeft}</span></div>`);
@@ -386,7 +391,7 @@
     const sum = P.fish.reduce((a, b) => a + b, 0);
     const pick = cost => { const idx = P.fish.map((f, i) => [f, i]).sort((a, b) => a[0] - b[0]); const out = []; let t = 0; for (const [f, i] of idx) { if (t >= cost) break; out.push(i); t += f; } return t >= cost ? out : null; };
     const acts = Object.keys(TB.FISH_COST).map(k => ({ k, cost: TB.fishCost(v, me, k) }));
-    this.modal(`<h2>Pescado</h2><p>Tienes ${P.fish.length} fichas (${P.fish.join(' + ') || '0'} = ${sum} peces). No se da cambio: el sobrante se pierde.</p>
+    this.modal(`<h2>Pescado</h2><p>Tienes ${P.fish.length} ${P.fish.length === 1 ? 'ficha' : 'fichas'} (${P.fish.join(' + ') || '0'} = ${sum} peces). No se da cambio: el sobrante se pierde.</p>
       <div class="menu-col">${acts.map(a => `<button class="btn" data-f="${a.k}" ${pick(a.cost) ? '' : 'disabled'}>${a.cost} peces — ${TB.FISH_NAME[a.k]}</button>`).join('')}</div>
       <button class="modal-x" data-close>×</button>`, {
       dismiss: true,

@@ -499,6 +499,7 @@
       this.$.dice.innerHTML = `<div class="die">${DIE(d[0])}</div><div class="die">${DIE(d[1])}</div><div class="dice-sum ${d[0] + d[1] === 7 ? 'seven' : ''}">${d[0] + d[1]}</div>`;
     }
     animateDice(final) {
+      if (this.isTB() && this.view.tb.events) { this.renderDice(final); return; }
       this.diceAnimating = true;
       let n = 0;
       const tick = () => {
@@ -586,7 +587,7 @@
       const st = { tab: 'bank', give: null, get: null, n: 1, offerGive: zero(), offerGet: zero(), to: 'all' };
       const draw = (m) => {
         const others = v.players.filter(p => p.id !== me);
-        const bankOnly = this.isPE() && v.pe.p2;
+        const bankOnly = (this.isPE() && v.pe.p2) || (this.isTB() && v.tb.p2);
         if (bankOnly) st.tab = 'bank';
         let html = `<h2>Comerciar</h2><div class="tabs"><button class="tab ${st.tab === 'bank' ? 'on' : ''}" data-tab="bank">${this.isPE() ? 'Banco' : 'Banco y puertos'}</button>
           ${bankOnly ? '' : `<button class="tab ${st.tab === 'players' ? 'on' : ''}" data-tab="players">Con jugadores</button>`}</div>`;

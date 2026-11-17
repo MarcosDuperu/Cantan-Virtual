@@ -7,10 +7,10 @@
   const AVATARS = ['🦊', '🐻', '🦉', '🐺', '🦁', '🐯', '🐸', '🐵', '🐼', '🐨', '🦅', '🐲', '🐮', '🐷', '🐰', '🦄', '🐢', '🐙'];
 
   const MODE_CARDS = [
-    { id: 'classic', title: 'Clásico', sub: '3-6 jugadores · 10 PV', desc: 'El juego original. Con 5-6 jugadores se usa la ampliación oficial.', art: ['wood', 'brick', 'sheep', 'wheat', 'ore'] },
+    { id: 'classic', title: 'Clásico', sub: '2-6 jugadores · 10 PV', desc: 'El juego original. Con 5-6 jugadores se usa la ampliación oficial y con 2, «Catan para dos».', art: ['wood', 'brick', 'sheep', 'wheat', 'ore'] },
     { id: 'seafarers', title: 'Navegantes', sub: '3-4 jugadores · 14 PV', desc: '«Hacia nuevas costas»: barcos, islas, pirata y ríos de oro.', art: ['gold', 'wood', 'sheep'] },
     { id: 'cities', title: 'Ciudades y Caballeros', sub: '3-6 jugadores · 13 PV', desc: 'Mercancías, mejoras de ciudad, metrópolis, caballeros y bárbaros.', art: ['knight', 'vp', 'ore'] },
-    { id: 'traders', title: 'Mercaderes y Bárbaros', sub: 'Próximamente', desc: 'Escenarios con caravanas, pescadores, ríos y bárbaros.', art: ['wheat', 'gold'], disabled: true },
+    { id: 'traders', title: 'Mercaderes y Bárbaros', sub: '2-6 jugadores · 5 escenarios', desc: 'Pescadores, ríos, caravanas, ataque bárbaro y carretas de mercancías.', art: ['fish', 'wheat', 'gold'] },
     { id: 'explorers', title: 'Piratas y Exploradores', sub: '2-6 jugadores · 5 escenarios', desc: 'Explora el mar oculto, funda colonias, captura guaridas piratas y lleva pescado y especias al Consejo.', art: ['fish', 'pirate', 'gold'] }
   ];
 
@@ -151,31 +151,66 @@
     return bots;
   }
 
-  function optionsHTML(mode, o) {
-    const pe = mode === 'explorers';
-    const sc = pe ? (C.PE.SCENARIOS[o.scenario] ? +o.scenario : 2) : null;
-    return `${pe ? `<label class="opt"><span>Escenario</span><select id="op-scen">${Object.values(C.PE.SCENARIOS).map(x => `<option value="${x.id}" ${x.id === sc ? 'selected' : ''}>${x.id}. ${x.name} (${x.vp} PV)</option>`).join('')}</select></label>
-      <div class="opt-note muted small" id="op-scen-desc">${esc(C.PE.SCENARIOS[sc].desc)}</div>` : ''}
-      <label class="opt"><span>Puntos para ganar</span><input type="number" id="op-vp" min="5" max="25" value="${o.vpTarget || (pe ? C.PE.SCENARIOS[sc].vp : C.EXPANSIONS[mode].vp)}"></label>
-      ${pe ? '' : `<label class="opt check"><input type="checkbox" id="op-friendly" ${o.friendlyRobber ? 'checked' : ''}><span>Ladrón amistoso <small>(no afecta a jugadores con ≤2 PV)</small></span></label>`}
+  // Escenarios de cada modo (Piratas y Exploradores, Mercaderes y Bárbaros)
+  function scenarioSet(mode) {
+    if (mode === 'explorers') return { list: C.PE.SCENARIOS, def: 2 };
+    if (mode === 'traders') return { list: C.TB.SCENARIOS, def: 1 };
+    return null;
+  }
+  // Escenarios que admite un número de jugadores (Catan para dos: solo 1 y 2)
+  function scenarioList(mode, count) {
+    const set = scenarioSet(mode);
+    if (!set) return [];
+    return Object.values(set.list).filter(x => x.id && (mode !== 'traders' || count !== 2 || x.two));
+  }
+  function validScenario(mode, sc, count) {
+    const list = scenarioList(mode, count);
+    if (!list.length) return null;
+    return list.some(x => x.id === +sc) ? +sc : (list.some(x => x.id === scenarioSet(mode).def) ? scenarioSet(mode).def : list[0].id);
+  }
+  const hasVariants = mode => mode === 'classic' || mode === 'traders';
+  function defaultVP(mode, sc) {
+    const set = scenarioSet(mode);
+    return set && sc ? set.list[sc].vp : C.EXPANSIONS[mode].vp;
+  }
+
+  function optionsHTML(mode, o, count) {
+    const set = scenarioSet(mode);
+    const sc = set ? validScenario(mode, o.scenario, count) : null;
+    return `${set ? `<label class="opt"><span>Escenario</span><select id="op-scen">${scenarioList(mode, count).map(x => `<option value="${x.id}" ${x.id === sc ? 'selected' : ''}>${x.id}. ${esc(x.name)} (${x.vp} PV)</option>`).join('')}</select></label>
+      <div class="opt-note muted small" id="op-scen-desc">${esc(set.list[sc].desc)}</div>` : ''}
+      <label class="opt"><span>Puntos para ganar</span><input type="number" id="op-vp" min="5" max="25" value="${o.vpTarget || defaultVP(mode, sc)}"></label>
+      ${mode === 'explorers' ? '' : `<label class="opt check"><input type="checkbox" id="op-friendly" ${o.friendlyRobber ? 'checked' : ''}><span>Ladrón amistoso <small>(no afecta a jugadores con ≤2 PV)</small></span></label>`}
+      ${hasVariants(mode) ? `<label class="opt check"><input type="checkbox" id="op-events" ${o.events ? 'checked' : ''}><span>Cartas de evento <small>(sustituyen a los dados)</small></span></label>
+      <label class="opt check"><input type="checkbox" id="op-harbor" ${o.harbormaster ? 'checked' : ''}><span>Señor del puerto <small>(+2 PV; se gana con 1 PV más)</small></span></label>` : ''}
+      ${mode === 'classic' && count === 2 ? '<div class="opt-note muted small">Con 2 jugadores se juega «Catan para dos»: dos jugadores neutrales, doble tirada y fichas de comercio.</div>' : ''}
       <label class="opt"><span>Velocidad de la máquina</span><select id="op-speed">
         <option value="slow" ${o.speed === 'slow' ? 'selected' : ''}>Lenta</option><option value="normal" ${!o.speed || o.speed === 'normal' ? 'selected' : ''}>Normal</option>
         <option value="fast" ${o.speed === 'fast' ? 'selected' : ''}>Rápida</option></select></label>`;
   }
   function readOptions(el) {
-    const fr = el.querySelector('#op-friendly'), sc = el.querySelector('#op-scen');
+    const ck = id => { const x = el.querySelector(id); return x ? x.checked : false; };
+    const sc = el.querySelector('#op-scen');
     return {
       vpTarget: Math.max(5, Math.min(25, +el.querySelector('#op-vp').value || 10)),
-      friendlyRobber: fr ? fr.checked : false,
+      friendlyRobber: ck('#op-friendly'),
+      events: ck('#op-events'),
+      harbormaster: ck('#op-harbor'),
       scenario: sc ? +sc.value : undefined,
       speed: el.querySelector('#op-speed').value
     };
   }
+  // Opciones que viajan a la partida (sin la velocidad)
+  function gameOptions(o) {
+    return { vpTarget: o.vpTarget, friendlyRobber: o.friendlyRobber, scenario: o.scenario, events: o.events, harbormaster: o.harbormaster };
+  }
   // Al cambiar de escenario se actualizan los PV por defecto
-  function bindScenario(el) {
+  function bindScenario(el, getMode) {
     el.querySelector('#opts').addEventListener('change', e => {
       if (e.target.id !== 'op-scen') return;
-      const sc = C.PE.SCENARIOS[e.target.value];
+      const set = scenarioSet(getMode());
+      if (!set) return;
+      const sc = set.list[e.target.value];
       el.querySelector('#op-vp').value = sc.vp;
       el.querySelector('#op-scen-desc').textContent = sc.desc;
     });
@@ -215,19 +250,22 @@
         st.bots.map((b, i) => `<div class="seat"><span class="pc-avatar" style="--pc:${C.colorHex(b.color)}">${b.avatar}</span>
           <span class="seat-name">${esc(b.name)}</span><select data-diff="${i}">
           ${[['easy', 'Fácil'], ['normal', 'Normal'], ['hard', 'Difícil']].map(([k, l]) => `<option value="${k}" ${b.difficulty === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>`).join('');
-      el.querySelector('#opts').innerHTML = optionsHTML(st.mode, st.options);
+      el.querySelector('#opts').innerHTML = optionsHTML(st.mode, st.options, st.count);
     };
     draw();
     el.querySelector('#counts').addEventListener('click', e => {
       const b = e.target.closest('[data-n]');
       if (!b) return;
       st.options = readOptions(el);
+      const prevScen = validScenario(st.mode, st.options.scenario, st.count);
       st.count = +b.dataset.n;
+      // si el escenario elegido no admite este número de jugadores, se vuelve a los PV por defecto
+      if (prevScen !== validScenario(st.mode, st.options.scenario, st.count)) st.options.vpTarget = null;
       st.bots = makeBots(st.count - 1, st.bots);
       draw();
     });
     el.querySelector('#seats').addEventListener('change', e => { if (e.target.dataset.diff !== undefined) st.bots[+e.target.dataset.diff].difficulty = e.target.value; });
-    bindScenario(el);
+    bindScenario(el, () => st.mode);
     el.querySelector('#reroll').addEventListener('click', () => { st.options = readOptions(el); st.bots = makeBots(st.count - 1, st.bots); draw(); });
     el.querySelector('#see-rules').addEventListener('click', () => showRulesModal(st.mode, st.count));
     el.querySelector('#start').addEventListener('click', () => {
@@ -235,7 +273,7 @@
       const seats = [{ kind: 'local', name: profile.name, color: profile.color, avatar: profile.avatar }]
         .concat(st.bots.map(b => ({ kind: 'bot', name: b.name, color: b.color, avatar: b.avatar, difficulty: b.difficulty })));
       const router = makeRouter();
-      const session = new C.LocalSession({ mode: C.resolveMode(st.mode, seats.length), options: { vpTarget: o.vpTarget, friendlyRobber: o.friendlyRobber, scenario: o.scenario }, seats: C.shuffle(seats), speed: o.speed }, router);
+      const session = new C.LocalSession({ mode: C.resolveMode(st.mode, seats.length), options: gameOptions(o), seats: C.shuffle(seats), speed: o.speed }, router);
       router.session = session;
       C._debug = session;
       session.start();
@@ -354,16 +392,19 @@
       c.scrollTop = c.scrollHeight;
     };
     if (isHost) {
-      bindScenario(el);
+      bindScenario(el, () => h.lastMode);
       // los invitados ven en la sala el escenario y los PV elegidos
       el.querySelector('#opts').addEventListener('change', () => {
         const o = readOptions(el);
-        h.session.setOptions({ vpTarget: o.vpTarget, friendlyRobber: o.friendlyRobber, scenario: o.scenario });
+        h.session.setOptions(gameOptions(o));
       });
       el.querySelector('.bot-add').addEventListener('click', e => { const b = e.target.closest('[data-bot]'); if (b) h.session.addBot(b.dataset.bot); });
       el.querySelector('#lb-start').addEventListener('click', () => {
         const o = readOptions(el);
-        h.session.options = { vpTarget: o.vpTarget, friendlyRobber: o.friendlyRobber, scenario: o.scenario };
+        const n = h.last ? h.last.seats.length : 0;
+        if (h.session.mode === 'traders' && n === 2 && !C.TB.SCENARIOS[o.scenario].two)
+          return alertBox('Escenario no disponible', 'Con 2 jugadores solo se pueden jugar los escenarios 1 y 2 de Mercaderes y Bárbaros.');
+        h.session.options = gameOptions(o);
         h.session.speed = o.speed;
         if (!h.session.start()) alertBox('Faltan jugadores', 'Este modo necesita entre ' + C.EXPANSIONS[h.session.mode].min + ' y ' + C.EXPANSIONS[h.session.mode].max + ' jugadores.');
       });
@@ -371,6 +412,7 @@
     h.onLobby = l => {
       if (!document.body.contains(el)) return;
       const M = C.EXPANSIONS[l.mode];
+      h.last = l;
       const addr = el.querySelector('#lb-addr');
       if (isHost && l.info) {
         const ips = (l.info.ips || []).filter(Boolean);
@@ -381,16 +423,18 @@
         if (h.lastMode !== l.mode) {
           h.lastMode = l.mode;
           prevOpts.vpTarget = null;
+          prevOpts.scenario = undefined;
           el.querySelector('#opts').innerHTML = optionsHTML(l.mode, prevOpts);
           const o = readOptions(el);
-          Object.assign(h.session.options, { vpTarget: null, friendlyRobber: o.friendlyRobber, scenario: o.scenario });
+          Object.assign(h.session.options, gameOptions(o), { vpTarget: null });
         }
         modeCards(l.mode, m => h.session.setMode(m), el.querySelector('#modes'));
         el.querySelector('#lb-start').disabled = !(l.seats.length >= M.min && l.seats.length <= M.max);
         el.querySelector('#lb-start').textContent = l.seats.length < M.min ? `Faltan ${M.min - l.seats.length} jugador(es)` : 'Comenzar partida';
       } else {
-        const scn = l.mode === 'explorers' && l.options && C.PE.SCENARIOS[l.options.scenario];
-        el.querySelector('#lb-mode').innerHTML = `<b>${esc(M.name)}</b>${scn ? ' · ' + esc(scn.name) : ''} · ${M.min}-${M.max} jugadores · ${(l.options && l.options.vpTarget) || (scn ? scn.vp : M.vp)} PV${l.options && l.options.friendlyRobber ? ' · ladrón amistoso' : ''}`;
+        const set = scenarioSet(l.mode), lo = l.options || {};
+        const scn = set && set.list[lo.scenario];
+        el.querySelector('#lb-mode').innerHTML = `<b>${esc(M.name)}</b>${scn && scn.id ? ' · ' + esc(scn.name) : ''} · ${M.min}-${M.max} jugadores · ${lo.vpTarget || (scn ? scn.vp : M.vp)} PV${lo.friendlyRobber ? ' · ladrón amistoso' : ''}${lo.events ? ' · cartas de evento' : ''}${lo.harbormaster ? ' · Señor del puerto' : ''}`;
         const mine = l.seats.find(s => s.cid === h.session.cid);
         el.querySelector('#my-color').innerHTML = C.COLORS.map(c => {
           const taken = l.seats.some(s => s.color === c.id && s !== mine);
