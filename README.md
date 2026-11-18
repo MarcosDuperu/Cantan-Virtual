@@ -2,6 +2,30 @@
 
 Colonos de Catan para computadora: contra la máquina o en red local (LAN).
 
+## Instalar el juego
+
+Descarga el instalador desde la página de **Releases** del repositorio (no hace falta el código fuente):
+
+- **Windows 7, 8, 8.1, 10 y 11** (32 y 64 bits): `Catan-Virtual-…-Instalador-Windows.exe`. Crea accesos directos en el
+  escritorio y el menú Inicio; se desinstala desde *Configuración → Aplicaciones* o *Panel de control → Programas*.
+  También hay una versión `…-portable.exe` que se abre sin instalar.
+- **Ubuntu, Linux Mint, Xubuntu, Debian y derivadas**: `catan-virtual_…_amd64.deb` (doble clic o
+  `sudo apt install ./catan-virtual_…_amd64.deb`). Desinstalar: `sudo apt remove catan-virtual`.
+- **Fedora, openSUSE**: el `.rpm`. **Cualquier otra distribución**: el `.AppImage` (en Ubuntu 22.04 o posterior
+  necesita `sudo apt install libfuse2`).
+
+### Crear los instaladores
+
+- Automático: al subir una etiqueta de versión, GitHub construye todos los instaladores y publica la Release
+  (`.github/workflows/instaladores.yml`):
+  ```bash
+  git tag v0.1.0 && git push origin v0.1.0
+  ```
+- En esta computadora (Linux): `npm run dist:linux` deja el `.deb` y el `.AppImage` en `dist/`.
+  `npm run dist:win` también funciona en Linux si está instalado `wine` (`sudo apt install wine`).
+
+Se usa Electron 22 porque es la última versión que funciona en Windows 7, 8 y 8.1.
+
 ## Cómo jugar (desarrollo)
 
 ```bash

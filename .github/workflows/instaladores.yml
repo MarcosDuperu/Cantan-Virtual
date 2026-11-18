@@ -1,0 +1,72 @@
+# Construye los instaladores de Windows y Linux.
+# - Al subir una etiqueta "v*" (por ejemplo: git tag v0.1.0 && git push origin v0.1.0)
+#   se crea una "Release" en GitHub con los instaladores para descargar.
+# - También se puede lanzar a mano desde la pestaña "Actions" (quedan como artefactos).
+name: Instaladores
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            cmd: npx electron-builder --win --publish never
+          - os: ubuntu-latest
+            cmd: npx electron-builder --linux deb AppImage rpm --x64 --publish never
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Herramientas para el paquete .rpm
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
+      - run: npm ci
+      - run: ${{ matrix.cmd }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: instaladores-${{ runner.os }}
+          path: |
+            dist/*.exe
+            dist/*.deb
+            dist/*.rpm
+            dist/*.AppImage
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: Catan Virtual ${{ github.ref_name }}
+          files: out/*
+          body: |
+            ## Descargas
+
+            **Windows 7, 8, 8.1, 10 y 11** (32 y 64 bits)
+            - `Catan-Virtual-…-Instalador-Windows.exe`: instalador. Crea accesos directos y se desinstala desde «Agregar o quitar programas».
+            - `Catan-Virtual-…-portable.exe`: sin instalar, se abre directamente.
+
+            **Linux**
+            - Ubuntu, Linux Mint, Xubuntu, Debian, Pop!_OS, Zorin…: `catan-virtual_…_amd64.deb` (doble clic, o `sudo apt install ./catan-virtual_…_amd64.deb`). Se desinstala con `sudo apt remove catan-virtual`.
+            - Fedora, openSUSE…: el archivo `.rpm`.
+            - Cualquier otra distribución: el `.AppImage` (darle permiso de ejecución y abrirlo).
+
+            Si Windows muestra «Windows protegió su PC», pulsa «Más información» → «Ejecutar de todas formas» (el instalador no está firmado).

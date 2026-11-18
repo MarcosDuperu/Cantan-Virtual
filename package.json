@@ -4,17 +4,118 @@
   "version": "0.1.0",
   "description": "Colonos de Catan virtual: solo contra la máquina o en red LAN",
   "main": "main.js",
-  "author": "Marcos",
+  "author": {
+    "name": "Marcos",
+    "email": "marcos.duperu007@gmail.com"
+  },
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron . --no-sandbox",
     "dev": "node server/dev.js",
-    "sim": "node tools/simulate.js"
+    "sim": "node tools/simulate.js",
+    "dist:linux": "electron-builder --linux",
+    "dist:win": "electron-builder --win",
+    "dist": "electron-builder --linux --win"
   },
   "dependencies": {
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "electron": "^33.2.0"
-  }
+    "electron": "22.3.27",
+    "electron-builder": "26.18.0"
+  },
+  "homepage": "https://github.com/MarcosDuperu/Cantan-Virtual",
+  "build": {
+    "appId": "com.marcosduperu.catanvirtual",
+    "productName": "Catan Virtual",
+    "copyright": "Marcos",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "server/**/*",
+      "src/**/*",
+      "build/icon.png",
+      "!server/dev.js"
+    ],
+    "artifactName": "Catan-Virtual-${version}-${os}-${arch}.${ext}",
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "ia32"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "portable": {
+      "artifactName": "Catan-Virtual-${version}-portable.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Catan Virtual",
+      "uninstallDisplayName": "Catan Virtual",
+      "artifactName": "Catan-Virtual-${version}-Instalador-Windows.exe",
+      "language": "3082",
+      "installerLanguages": [
+        "es_ES"
+      ],
+      "deleteAppDataOnUninstall": false
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Game",
+      "icon": "build/icon.png",
+      "executableArgs": [
+        "--no-sandbox"
+      ],
+      "maintainer": "Marcos <marcos.duperu007@gmail.com>",
+      "synopsis": "Colonos de Catan contra la máquina o en red local",
+      "desktop": {
+        "entry": {
+          "Name": "Catan Virtual",
+          "Comment": "Colonos de Catan: contra la máquina o en red local",
+          "Categories": "Game;BoardGame;",
+          "StartupWMClass": "Catan Virtual"
+        }
+      },
+      "syncDesktopName": true
+    },
+    "deb": {
+      "artifactName": "catan-virtual_${version}_amd64.deb"
+    },
+    "appImage": {
+      "artifactName": "Catan-Virtual-${version}-x86_64.AppImage"
+    }
+  },
+  "desktopName": "catan-virtual.desktop"
 }
