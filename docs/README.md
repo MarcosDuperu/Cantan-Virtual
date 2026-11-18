@@ -9,11 +9,13 @@ Resúmenes de los reglamentos oficiales, con el estado de cada parte en el juego
 | [ciudades-y-caballeros.md](ciudades-y-caballeros.md) | Ciudades y Caballeros y su ampliación 5-6 | Implementado (3-6) |
 | [piratas-y-exploradores.md](piratas-y-exploradores.md) | Piratas y Exploradores y su ampliación 5-6 | Implementado (2-6, 5 escenarios) |
 | [mercaderes-y-barbaros.md](mercaderes-y-barbaros.md) | Mercaderes y Bárbaros y su ampliación 5-6 | Implementado (2-6, 5 escenarios y variantes) |
+| [sexta-edicion.md](sexta-edicion.md) | Diferencias de la 6.ª edición (2025) | Revisadas; el juego sigue la 5.ª |
+| [sin-resolver.md](sin-resolver.md) | Lo que no se pudo corregir (faltan datos o el reglamento no lo aclara) | 4 puntos |
 
 ## Ediciones
 
 - Las notas siguen la **5.ª edición en inglés** (reglamentos 2020-2023 de catan.com), que es la base de la implementación.
-- En 2025 salió una **6.ª edición** con reglamentos nuevos; no se revisaron sus diferencias.
+- En 2025 salió una **6.ª edición** con reglamentos nuevos; sus diferencias están en [sexta-edicion.md](sexta-edicion.md).
 - Las **ampliaciones 5-6 de 2022-2023** reemplazan la antigua *fase de construcción especial* por los
   **jugadores en pareja** (ver [juego-base.md](juego-base.md)). El juego usa los jugadores en pareja en todos
   los modos 5-6; en el Clásico y en Ciudades y Caballeros la fase de construcción especial queda como opción.

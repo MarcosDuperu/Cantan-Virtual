@@ -184,10 +184,25 @@
 
   // Dónde puede ponerse un colono o una tripulación nueva: muelle de un poblado portuario
   // propio o un barco propio junto a él
-  function cargoTargets(s, pid, item) {
-    const docks = ownHarbors(s, pid).filter(v => space(s.pe.docks[v] || []) >= SIZE[item]);
-    const ships = Object.values(s.pe.ships).filter(x => x.owner === pid && harborOf(s, pid, x.edge) !== undefined && space(x.cargo) >= SIZE[item]).map(x => x.id);
+  // Con las reglas 2025, si no queda sitio, se puede devolver una pieza de un muelle o barco para hacer lugar (makeRoom)
+  function cargoTargets(s, pid, item, makeRoom) {
+    const fits = list => makeRoom || space(list) >= SIZE[item];
+    const docks = ownHarbors(s, pid).filter(v => fits(s.pe.docks[v] || []));
+    const ships = Object.values(s.pe.ships).filter(x => x.owner === pid && harborOf(s, pid, x.edge) !== undefined && fits(x.cargo)).map(x => x.id);
+    if (!makeRoom && !docks.length && !ships.length && s.rules2025) return cargoTargets(s, pid, item, true);
     return { docks, ships };
+  }
+  // devuelve piezas (de la última cargada hacia atrás) hasta que quepa la nueva
+  function makeRoom(s, pid, holder, item) {
+    const P = s.players[pid];
+    const out = [];
+    while (space(holder) < SIZE[item] && holder.length) {
+      const it = holder.pop();
+      if (it === 'settler' || it === 'crew') P.pieces[it]++;
+      else if (it === 'fish') s.pe.fishSupply++;
+      out.push(it);
+    }
+    if (out.length) R().log(s, name(s, pid) + ' devuelve ' + out.map(it => ITEM_NAME[it]).join(' y ') + ' a la reserva para hacer sitio.', pid);
   }
 
   const baseMP = (s, pid) => Math.min(MAX_MP, 4 + countBen(s.players[pid], 'fastTravel'));
@@ -574,6 +589,7 @@
       else if (tg.docks.length) holder = s.pe.docks[tg.docks[0]] || (s.pe.docks[tg.docks[0]] = []);
       if (!holder) return err('Debe ir al muelle de tu poblado portuario o a un barco tuyo junto a él, con espacio libre');
       R().pay(s, pid, COST[item]);
+      if (space(holder) < SIZE[item]) makeRoom(s, pid, holder, item);
       holder.push(item);
       P.pieces[item]--;
       R().log(s, name(s, pid) + (item === 'settler' ? ' prepara un colono.' : ' recluta una tripulación.'), pid);

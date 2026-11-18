@@ -299,5 +299,35 @@ const settleOf = (s, pid) => Object.keys(s.buildings).map(Number).find(v => s.bu
   check(s.phase === 'main' && s.players[r].resources.paper === 1 && P.resources.ore === 2, 'Puerto comercial: puedes no ofrecer nada a un rival');
 }
 
+// ================= reglas aclaradas (reglamento 2020 y 2025) =================
+{
+  // sin una ciudad libre para la metrópolis no se pasa del nivel 3
+  const s = game(); const p = s.current, P = s.players[p];
+  C.apply(s, p, { type: 'roll', forced: [1, 2], forcedEvent: 'ship' });
+  const cv = cityOf(s, p);
+  P.improve.science = 3; give(P, { paper: 10, coin: 10 });
+  s.buildings[cv].metro = 'politics'; s.ck.metropolis.politics = { owner: p, vertex: cv };
+  check(!!C.apply(s, p, { type: 'improve', area: 'science' }).error, 'sin ciudad libre para la metrópolis no se compra el nivel 4');
+  P.improve.politics = 4;
+  check(!C.apply(s, p, { type: 'improve', area: 'politics' }).error && P.improve.politics === 5, 'con la metrópolis de ese color sí se sube al nivel 5');
+}
+{
+  // ciudad saqueada sin poblados de reserva: queda tumbada como poblado y se mejora primero
+  const s = game(); const p = s.current, P = s.players[p];
+  const q2 = (p + 1) % 3, q3 = (p + 2) % 3;
+  s.knights[myRoadVertex(s, q2)] = { owner: q2, level: 1, active: true, actTurn: -1, promTurn: -1 };
+  s.knights[myRoadVertex(s, q3)] = { owner: q3, level: 1, active: true, actTurn: -1, promTurn: -1 };
+  const cv = cityOf(s, p), sv = settleOf(s, p);
+  P.pieces.settlement = 0;
+  s.ck.barbarian = 6;
+  C.apply(s, p, { type: 'roll', forced: [1, 2], forcedEvent: 'ship' });
+  check(s.buildings[cv] && s.buildings[cv].type === 'settlement' && s.buildings[cv].downed, 'ciudad saqueada sin poblados de reserva: queda como poblado');
+  check(C.validCities(s, p).join() === String(cv), 'la ciudad tumbada es la primera que se vuelve a mejorar');
+  give(P, { wheat: 2, ore: 3 });
+  const cities0 = P.pieces.city;
+  check(!!C.apply(s, p, { type: 'buildCity', vertex: sv }).error && !C.apply(s, p, { type: 'buildCity', vertex: cv }).error && P.pieces.city === cities0 && !s.buildings[cv].downed,
+    'al mejorarla no se gasta otra pieza de ciudad');
+}
+
 console.log(fails ? fails + ' fallos' : 'Todas las pruebas pasaron');
 process.exit(fails ? 1 : 0);

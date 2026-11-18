@@ -245,8 +245,8 @@
       case 'pillage': {
         const b = s.buildings[pick];
         if (b.wall) { b.wall = false; P.walls--; }
-        P.pieces.city++;
-        if (P.pieces.settlement > 0) { b.type = 'settlement'; P.pieces.settlement--; } else delete s.buildings[pick];
+        // si no le quedan poblados, la ciudad queda tumbada como poblado (y es la primera que debe volver a mejorar)
+        if (P.pieces.settlement > 0) { b.type = 'settlement'; P.pieces.city++; P.pieces.settlement--; } else { b.type = 'settlement'; b.downed = true; }
         R().log(s, 'Los bárbaros saquean una ciudad de ' + P.name + ': queda reducida a poblado.', c.pid);
         R().event(s, { type: 'build', what: 'pillage', pid: c.pid, at: pick });
         R().updateLongestRoad(s);
@@ -334,6 +334,11 @@
   }
 
   // ---------- metrópolis ----------
+  // No se compran los niveles 4 y 5 sin una ciudad donde poner la metrópolis (o si ya tienes la de ese color)
+  function canHoldMetropolis(s, pid, area) {
+    const m = s.ck.metropolis[area];
+    return (m && m.owner === pid) || citiesOf(s, pid).some(v => !s.buildings[v].metro);
+  }
   function bestCityFor(s, pid) {
     const cs = citiesOf(s, pid).filter(v => !s.buildings[v].metro);
     let best = null, bestVal = -1;
@@ -652,6 +657,7 @@
       if (!citiesOf(s, pid).length) return err('Necesitas al menos una ciudad');
       const lvl = P.improve[area];
       if (lvl >= 5) return err('Ya tienes el nivel máximo');
+      if (lvl >= 3 && !canHoldMetropolis(s, pid, area)) return err('Para pasar del nivel 3 necesitas una ciudad donde poner la metrópolis');
       const crane = s.ck.crane === pid && s.phase === 'main';
       const cost = lvl + 1 - (crane ? 1 : 0);
       const comm = AREA_COMM[area];
@@ -766,10 +772,12 @@
       case 'medicine': {
         const b = s.buildings[a.vertex];
         if (!b || b.owner !== pid || b.type !== 'settlement') return err('Elige uno de tus poblados');
-        if (P.pieces.city <= 0) return err('No te quedan ciudades');
+        if (!C.validCities(s, pid).includes(a.vertex)) return err('Primero debes volver a mejorar tu ciudad saqueada');
+        if (P.pieces.city <= 0 && !b.downed) return err('No te quedan ciudades');
         if (!C.hasRes(P.resources, { ore: 2, wheat: 1 })) return err('Necesitas 2 de mineral y 1 de cereal');
         R().pay(s, pid, { ore: 2, wheat: 1 });
-        b.type = 'city'; P.pieces.city--; P.pieces.settlement++;
+        if (b.downed) delete b.downed; else { P.pieces.city--; P.pieces.settlement++; }
+        b.type = 'city';
         R().event(s, { type: 'build', what: 'city', pid, at: a.vertex });
         after = () => afterCity(s, pid);
         break;
@@ -936,7 +944,7 @@
     AREAS, AREA_COMM, AREA_NAME, AREA_COLOR, IMPROVEMENTS, METRO_NAME, PROGRESS, PROGRESS_AREA, PROGRESS_NAME, PROGRESS_HELP,
     KNIGHT_COST, ACTIVATE_COST, WALL_COST, KNIGHT_NAME,
     init, roll, handle, choiceOptions, extraVP, adjustRatios, afterCity, canEndTurn, onTurnStart, redact,
-    knightSpots, knightTargets, canChase, promotable, activeStrength, totalStrength, barbarianStrength, defense, citiesOf, handLimit,
+    canHoldMetropolis, knightSpots, knightTargets, canChase, promotable, activeStrength, totalStrength, barbarianStrength, defense, citiesOf, handLimit,
     isOpenRoad, merchantHexes, inventorHexes, adjacentHexes
   };
 })(typeof window !== 'undefined' ? window : globalThis);

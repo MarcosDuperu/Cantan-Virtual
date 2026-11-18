@@ -545,5 +545,31 @@ for (const n of [2, 3, 4]) {
   check(vs.every(v => s.board.vertices[v].adj.every(a => !s.buildings[a])), `escenario 1 con ${n}: las posiciones fijas respetan la distancia`);
 }
 
+// --- reglas 2025: devolver una pieza para hacer sitio ---
+{
+  const mk = o => { const s = C.createGame({ mode: 'explorers', options: Object.assign({ scenario: 2 }, o), players: ['Ana', 'Beto', 'Caro'].map((name, i) => ({ name, color: 'c' + i })) });
+    const mem = s.players.map(() => ({})); for (let i = 0; i < 500 && s.phase !== 'roll'; i++) C.apply(s, s.current, C.AI.decide(s, s.current, mem[s.current])); toMain(s); return s; };
+  const fill = s => { const p = s.current; PE.ownHarbors(s, p).forEach(v => { s.pe.docks[v] = ['crew', 'crew']; }); Object.values(s.pe.ships).filter(x => x.owner === p).forEach(x => { x.cargo = ['settler']; }); };
+  const s = mk({ rules2025: true }), s0 = mk({});
+  [s, s0].forEach(fill);
+  const p = s.current, P = s.players[p];
+  give(P, { ore: 1, sheep: 1 }); give(s0.players[s0.current], { ore: 1, sheep: 1 });
+  check(!!C.apply(s0, s0.current, { type: 'buildCrew' }).error, 'sin sitio no se recluta una tripulación (5.ª edición)');
+  const crew0 = P.pieces.crew;
+  const dock = PE.ownHarbors(s, p)[0];
+  check(!C.apply(s, p, { type: 'buildCrew', dock }).error && s.pe.docks[dock].length === 2 && P.pieces.crew === crew0, 'reglas 2025: se devuelve una tripulación del muelle para hacer sitio a la nueva');
+}
+
+// --- fichas y bancos de pesca de cada zona (componentes de la 6.ª edición) ---
+{
+  const b = C.generateBoard('explorers', { scenario: 5 });
+  const sorted = a => a.slice().sort((x, y) => x - y).join();
+  check(sorted(b.numberPool[0]) === '3,4,5,6,9,10' && sorted(b.numberPool[1]) === '4,5,8,9,10,11', 'fichas de las zonas: norte 3-4-5-6-9-10, sur 4-5-8-9-10-11');
+  const fish = b.hexes.filter(h => h.terrain === 'fish');
+  check(fish.every(h => (h.area === 0 ? [1, 2, 3] : [4, 5, 6]).includes(h.fishNo)) && new Set(fish.map(h => h.fishNo)).size === 6, 'bancos de pesca: 1-3 en el norte y 4-6 en el sur');
+  const b56 = C.generateBoard('explorers56', { scenario: 5 });
+  check(sorted(b56.numberPool[0]) === '2,3,4,5,5,6,9,9,10' && sorted(b56.numberPool[1]) === '3,4,4,5,8,9,10,10,11', 'en 5-6 se suman las fichas de la ampliación (norte 2-5-9, sur 3-4-10)');
+}
+
 console.log(fails ? fails + ' fallos' : 'Todas las pruebas pasaron');
 process.exit(fails ? 1 : 0);

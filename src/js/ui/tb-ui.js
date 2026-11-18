@@ -80,6 +80,8 @@
         const V = T.vote;
         return V.order[V.idx] === me ? 'Votación del camello: elige un camino (resaltado) y cuánta lana/cereal ofreces' : `Votación del camello: vota ${this.pname(V.order[V.idx])}…`;
       }
+      case 'tbDamage': return T.pending.who.includes(me) ? 'Terremoto: elige cuál de tus carreteras queda dañada (resaltadas)' : 'Terremoto: los jugadores eligen su carretera dañada…';
+      case 'tbIntrigue': return mine ? 'Intriga: elige el hexágono de la costa del que sacas un bárbaro' : `${who} hace prisionero a un bárbaro…`;
       case 'tbSteal': return mine ? 'Elige a quién robar 1 carta' : `${who} elige a quién robar…`;
       case 'tbNeutral': return mine ? `Construye gratis ${T.neutralBuild.kind === 'road' ? 'una carretera' : 'un poblado'} para un jugador neutral (resaltado)` : `${who} construye para un neutral…`;
       case 'tbKnight': return mine ? 'Coloca tu caballero en un camino resaltado' : `${who} coloca un caballero…`;
@@ -115,7 +117,9 @@
       const sel = this.tbVotePref !== undefined && opts[this.tbVotePref] ? [opts[this.tbVotePref].edge] : [];
       return { edges: opts.map(o => o.edge), edgeClass: 'move', selected: sel };
     }
+    if (v.phase === 'tbDamage') return T.pending.who.includes(me) ? { edges: TB.damageable(v, me), edgeClass: 'move' } : null;
     if (v.current !== me) return null;
+    if (v.phase === 'tbIntrigue') return { hexes: TB.intrigueHexes(v) };
     switch (v.phase) {
       case 'tbNeutral': {
         const opts = TB.neutralOptions(v, T.neutralBuild.kind);
@@ -177,7 +181,15 @@
       if (kind === 'edge' && T.vote.order[T.vote.idx] === me) { this.tbVotePref = TB.camelOptions(v).findIndex(o => o.edge === id); this.render(); }
       return true;
     }
+    if (v.phase === 'tbDamage') {
+      if (kind === 'edge' && T.pending.who.includes(me) && TB.damageable(v, me).includes(id)) this.send({ type: 'damageRoad', edge: id });
+      return true;
+    }
     if (v.current !== me) return false;
+    if (v.phase === 'tbIntrigue') {
+      if (kind === 'hex' && TB.intrigueHexes(v).includes(id)) this.send({ type: 'intrigue', hex: id });
+      return true;
+    }
     switch (v.phase) {
       case 'tbNeutral': {
         const o = TB.neutralOptions(v, T.neutralBuild.kind).find(x => x.at === id);
@@ -246,6 +258,7 @@
       el.className = 'pe-ship show';
       el.innerHTML = `<div class="tf-head">🐪 Votación del camello</div>
         <div class="ps-hint">Haz clic en un camino resaltado para elegir dónde quieres el camello. Cada lana o cereal que ofrezcas es un voto (se pierden).</div>
+        ${Object.keys(T.vote.bids).length ? `<div class="ps-hint">${Object.entries(T.vote.bids).map(([p, x]) => `${this.pname(+p)}: ${x.sheep + x.wheat} voto(s) por el camino ${(T.vote.prefs[p] || 0) + 1}`).join(' · ')}</div>` : ''}
         <div class="ps-btns">${['sheep', 'wheat'].map(k => `<span class="cnt">${icon(k, 22)}<span class="stepper"><button data-tv="${k}:-1" ${b[k] ? '' : 'disabled'}>−</button><b>${b[k]}</b>
           <button data-tv="${k}:1" ${b[k] < P.resources[k] ? '' : 'disabled'}>+</button></span></span>`).join('')}
           <button class="mini ok" data-tvote>Votar (${b.sheep + b.wheat})</button></div>`;

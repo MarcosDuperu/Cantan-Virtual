@@ -280,7 +280,8 @@
     renderBanner() {
       const mine = this.isMyTurn() || (this.view.pendingDiscard || {})[this.me] || (this.view.pendingGold || {})[this.me] || (this.view.pendingGive || {})[this.me] ||
         (this.view.phase === 'specialBuild' && this.view.specialBuilder === this.me) ||
-        (this.view.phase === 'ckChoice' && this.view.ck.choices[0] && this.view.ck.choices[0].pid === this.me);
+        (this.view.phase === 'ckChoice' && this.view.ck.choices[0] && this.view.ck.choices[0].pid === this.me) ||
+        (this.view.phase === 'tbDamage' && this.view.tb.pending.who.includes(this.me));
       this.$.banner.className = 'status-banner' + (mine ? ' mine' : '');
       this.$.banner.innerHTML = this.statusText();
     }
@@ -358,6 +359,7 @@
       let html = '';
       if (v.phase === 'roll' && this.isMyTurn()) html += `<button class="abtn primary roll" data-a="roll"><span class="ab-ic">${v.tb && v.tb.events ? '🂠' : '🎲'}</span><span class="ab-l">${v.tb && v.tb.events ? 'Carta de evento' : 'Tirar dados'}${v.tb && v.tb.two && v.tb.rolls === 1 ? ' (2.ª)' : ''}</span></button>`;
       if (v.phase === 'roadBuilding' && this.isMyTurn()) html += `<button class="abtn" data-a="endRoadBuilding"><span class="ab-l">Terminar construcción gratis</span></button>`;
+      if (v.phase === 'robber' && this.isMyTurn() && C.canPirateFrame(v, this.me)) html += `<button class="abtn" data-a="pirateFrame" title="Reglas 2025: el pirata sale del mar y no roba"><span class="ab-ic">🏴‍☠️</span><span class="ab-l">Pirata al marco</span></button>`;
       html += btn('road', 'Carretera', pieceSVG('road', P.color, 26), build && P.pieces.road > 0 && this.afford('road') && C.validRoutes(v, this.me, 'road').length, C.COST.road);
       if (ships) html += btn('ship', 'Barco', pieceSVG('ship', P.color, 26), build && P.pieces.ship > 0 && this.afford('ship') && C.validRoutes(v, this.me, 'ship').length, C.COST.ship);
       html += btn('settlement', 'Poblado', pieceSVG('settlement', P.color, 26), build && P.pieces.settlement > 0 && this.afford('settlement') && C.validSettlements(v, this.me, false).length, C.COST.settlement);
@@ -390,6 +392,7 @@
       else if (a === 'end') this.endTurn();
       else if (a === 'pass') this.send({ type: 'endTurn' });
       else if (a === 'endRoadBuilding') this.send({ type: 'endRoadBuilding' });
+      else if (a === 'pirateFrame') this.send({ type: 'moveRobber', frame: true });
       else if (a === 'dev') this.send({ type: 'buyDev' });
       else if (a === 'trade') this.openTrade();
       else if (['road', 'ship', 'settlement', 'city', 'moveFrom'].includes(a)) this.setMode(this.mode === a ? null : a);
@@ -596,8 +599,9 @@
       const ratios = C.tradeRatios(v, me);
       const KS = this.cardKeys();
       // con jugadores, en Piratas y Exploradores también se comercia oro
-      const KT = this.isPE() ? KS.concat('gold') : KS;
-      const hand = this.isPE() ? Object.assign({}, P.resources, { gold: P.gold }) : P.resources;
+      const gt = C.goldTrades(v);
+      const KT = gt ? KS.concat('gold') : KS;
+      const hand = gt ? Object.assign({}, P.resources, { gold: P.gold || 0 }) : P.resources;
       const zero = () => Object.fromEntries(KT.map(k => [k, 0]));
       const st = { tab: 'bank', give: null, get: null, n: 1, offerGive: zero(), offerGet: zero(), to: 'all' };
       const draw = (m) => {

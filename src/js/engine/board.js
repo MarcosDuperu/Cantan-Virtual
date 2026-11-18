@@ -137,6 +137,7 @@
   // Colocación oficial (3-4): fichas A…R en espiral desde una esquina, en sentido antihorario hacia el centro,
   // saltando el desierto. Se prueba desde las esquinas (al azar) hasta que ningún 6 u 8 queda junto a otro.
   const SPIRAL_TOKENS = [5, 2, 6, 3, 8, 10, 9, 12, 11, 4, 8, 10, 9, 4, 5, 6, 3, 11];
+  const NO_TOKEN = ['desert', 'swamp', 'lake', 'oasis', 'castle', 'quarry', 'glassworks'];
   function spiralNumbers(board, sequence) {
     const land = board.hexes.filter(h => isLand(h.terrain));
     const cx = land.reduce((a, h) => a + h.x, 0) / land.length, cy = land.reduce((a, h) => a + h.y, 0) / land.length;
@@ -163,7 +164,7 @@
         order.push(...ring);
       }
       let k = 0;
-      order.forEach(h => { h.number = h.terrain === 'desert' ? undefined : sequence[k++]; if (h.number === undefined) delete h.number; });
+      order.forEach(h => { h.number = NO_TOKEN.includes(h.terrain) ? undefined : sequence[k++]; if (h.number === undefined) delete h.number; });
       const bad = land.some(h => (h.number === 6 || h.number === 8) && neighborsOf(board, h).some(n => n.number === 6 || n.number === 8));
       if (!bad) return true;
     }
@@ -301,7 +302,12 @@
     ['mountains', 'mountains', 'forest', 'pasture', 'fields', 'hills', 'mountains', 'forest', 'fields'],
     ['mountains', 'forest', 'pasture', 'fields', 'fields', 'hills', 'mountains', 'pasture', 'hills']
   ];
-  const PE_AREA_TOKENS = [[4, 5, 6, 8, 9, 11, 2, 5, 9], [3, 5, 6, 8, 10, 12, 3, 4, 10]];
+  // Fichas de cada área: las 6 estándar (lista de componentes de la 6.ª edición, que coincide con las planchas de 2020) y las
+  // 3 de la ampliación 5-6. Norte = luna verde (loro en 2025), sur = sol naranja (ganso).
+  const PE_AREA_TOKENS = [[3, 4, 5, 6, 9, 10, 2, 5, 9], [4, 5, 8, 9, 10, 11, 3, 4, 10]];
+  // Bancos de pesca: los del norte llevan el 1, 2 y 3; los del sur, el 4, 5 y 6
+  const PE_FISH_NOS = [[1, 2, 3], [4, 5, 6]];
+  // Fichas de guarida: el reglamento solo muestra el 5 (ejemplo 12) y las de la ampliación 5-6 (9 y 10); las demás son propias
   const PE_LAIR_TOKENS = [4, 5, 6, 8, 10, 11, 9, 10];
   const PE_BENEFITS = ['fastTravel', 'pirate', 'fastGold'];
 
@@ -404,8 +410,6 @@
   function finishExplorers(sc, big, built, opt) {
     const { board0, islandRows } = built;
     const comp = PE_AREAS[big ? 'big' : 'small'][sc];
-    // reparto del contenido oculto: las guaridas y especias deben tener agua cerca
-    const byKey = new Map(board0.map(h => [h.q + ',' + h.r, h]));
     const hid = board0.filter(h => h.hid);
     // tipos de cada área según el escenario (en el mapa oficial las celdas vienen sin tipo)
     [0, 1].forEach(ai => {
@@ -413,17 +417,12 @@
       Object.entries(comp[ai]).forEach(([k, c]) => { for (let i = 0; i < c; i++) kinds.push(k); });
       hid.filter(h => h.area === ai).forEach((h, i) => { h.kind = kinds[i]; });
     });
-    const water = h => !h || h.terrain === 'sea' || h.kind === 'sea' || h.kind === 'fish' || h.terrain === 'council';
-    for (let attempt = 0; attempt < 400; attempt++) {
-      [0, 1].forEach(ai => {
-        const cells = hid.filter(h => h.area === ai);
-        const ks = shuffle(cells.map(h => h.kind));
-        cells.forEach((h, i) => { h.kind = ks[i]; });
-      });
-      const ok = hid.every(h => !['lair', 'spice'].includes(h.kind) ||
-        NEIGH.filter(([dq, dr]) => water(byKey.get((h.q + dq) + ',' + (h.r + dr)))).length >= 2);
-      if (ok) break;
-    }
+    // las losetas de cada zona se barajan y se reparten al azar (como en el reglamento)
+    [0, 1].forEach(ai => {
+      const cells = hid.filter(h => h.area === ai);
+      const ks = shuffle(cells.map(h => h.kind));
+      cells.forEach((h, i) => { h.kind = ks[i]; });
+    });
     const terrPools = [0, 1].map(ai => shuffle(PE_AREA_TERRAINS[ai].slice(0, big ? 9 : 6)));
     hid.forEach(h => {
       if (h.kind === 't') h.terrain = terrPools[h.area].pop();
@@ -438,8 +437,10 @@
       if (hx.hidden) hx.area = src.area;
       if (src.kind === 'lair') hx.lair = { crews: [] };
     });
-    const fishNos = shuffle([1, 2, 3, 4, 5, 6]);
-    board.hexes.filter(h => h.terrain === 'fish').forEach((h, i) => { h.fishNo = fishNos[i % 6]; h.fish = 0; });
+    [0, 1].forEach(ai => {
+      const nos = shuffle(PE_FISH_NOS[ai].slice());
+      board.hexes.filter(h => h.terrain === 'fish' && h.area === ai).forEach((h, i) => { h.fishNo = nos[i % 3]; h.fish = 0; });
+    });
     // cada área tiene una aldea de cada ventaja; las de bonificación pirata llevan un 4 y un 5
     const pirateDie = shuffle([4, 5]);
     [0, 1].forEach(ai => {
@@ -492,9 +493,15 @@
     board.homeIslands = [0];
     return board;
   }
+  // puertos de Mercaderes y Bárbaros: los lugares fijos del marco (las piezas de marco que cambia la expansión los mantienen)
+  const tbPorts = (board, big) => big ? framePorts(board, [3, 4, 5, 6, 5, 4, 3], EXT_FRAME_PORTS, BASE_PORTS) : framePorts(board, [3, 4, 5, 4, 3], BASE_FRAME_PORTS, BASE_PORTS);
+  const ROW34 = [0, 3, 7, 12, 16];
+  const ROW56 = [0, 3, 7, 12, 18, 23, 27];
   const removeOnce = (list, items) => { const l = list.slice(); items.forEach(x => { const i = l.indexOf(x); if (i >= 0) l.splice(i, 1); }); return l; };
   const angleOf = h => Math.atan2(h.y, h.x);
 
+  // Caladeros 3-4 del reglamento: [hexágono de la costa, hexágono vecino, número] (fila, posición), en sentido horario desde arriba
+  const FISH34 = [[[0, 0], [0, 1], 6], [[1, 3], [2, 4], 8], [[2, 4], [3, 3], 9], [[4, 0], [4, 1], 5], [[3, 0], [4, 0], 4], [[0, 0], [1, 0], 10]];
   // Pescadores: lago(s) en el interior y caladeros en la costa (3 cruces cada uno)
   function tbFishermen(big) {
     const land = tbLand(big);
@@ -508,7 +515,19 @@
     }
     const board = buildGraph(addSeaRing(land));
     assignNumbers(board, board.hexes.filter(h => isLand(h.terrain) && h.terrain !== 'lake').map(h => h.id), big ? EXT_TOKENS : BASE_TOKENS);
-    placePorts(board, big ? EXT_PORTS : BASE_PORTS);
+    tbPorts(board, big);
+    if (!big) {
+      // 3-4: caladeros como en la ilustración del reglamento (cada uno entre dos hexágonos de la costa)
+      const hx = (r, c) => board.hexes[ROW34[r] + c];
+      board.fishing = FISH34.map(([a, b, n]) => {
+        const A = hx(...a), B = hx(...b);
+        const sea = board.hexes.find(h => h.terrain === 'sea' && C.neighborsOf(board, h).includes(A) && C.neighborsOf(board, h).includes(B));
+        return { hex: sea.id, number: n, vertices: sea.vertices.filter(v => board.vertices[v].land) };
+      });
+      board.robber = null;
+      return tbFinish(board);
+    }
+    // 5-6: un caladero en cada espacio de la costa sin puerto, repartidos por el marco
     const portHex = new Set(board.ports.map(p => p.hex));
     const coast = board.hexes.filter(h => h.terrain === 'sea' && !portHex.has(h.id) && h.vertices.filter(v => board.vertices[v].land).length === 3);
     coast.sort((x, y) => angleOf(x) - angleOf(y));
@@ -527,62 +546,55 @@
     return tbFinish(board);
   }
 
-  // Ríos: recorridos desde la costa hacia el interior; el extremo interior de dos de ellos es un pantano
+  // Ríos: tableros oficiales 3-4 y 5-6
   function tbRivers(big) {
+    return big ? tbRiversOfficial(true) : tbRivers34();
+  }
+  // Ríos 3-4 (ilustración del reglamento): el río de 4 hexágonos ocupa la 2.ª fila (pantano, pasto, colina, montaña, de oeste
+  // a este) y el de 3 la 4.ª (pantano, colina, montaña); los pantanos están en la desembocadura, junto al marco oeste.
+  // Sitios de puente: la desembocadura y los lados entre hexágonos seguidos del río (7 en total).
+  function tbRivers34() { return tbRiversOfficial(false); }
+  // Ríos 5-6 (ilustración del reglamento 5-6): el río de 3 hexágonos baja desde la costa norte (pantano, colina, montaña), el de 4
+  // sube desde la costa sur (pantano, pasto, colina, montaña) por la segunda columna, y el río de la ampliación (montaña, pasto,
+  // pasto) desemboca en la costa este por la fila del medio. Todas las fichas de la ampliación en espiral, sin pantanos.
+  const RIVERS = {
+    false: { rows: ROW34, rivers: [[[1, 0], [1, 1], [1, 2], [1, 3]], [[3, 0], [3, 1], [3, 2]]], terr: [['swamp', 'pasture', 'hills', 'mountains'], ['swamp', 'hills', 'mountains']],
+      mouths: [[0, 'W'], [0, 'W']] },
+    true: { rows: ROW56, rivers: [[[6, 1], [5, 1], [4, 1], [3, 1]], [[0, 1], [1, 1], [2, 1]], [[3, 5], [3, 4], [3, 3]]],
+      terr: [['swamp', 'pasture', 'hills', 'mountains'], ['swamp', 'hills', 'mountains'], ['pasture', 'pasture', 'mountains']],
+      mouths: [[0, 'SE'], [0, 'NE'], [0, 'E']] }
+  };
+  function tbRiversOfficial(big) {
+    const R0 = RIVERS[big];
     const land = tbLand(big);
-    const keys = new Map(land.map(h => [h.q + ',' + h.r, h]));
-    const lens = big ? [3, 4, 3] : [3, 4];
-    let rivers;
-    for (let att = 0; att < 500; att++) {
-      rivers = [];
-      const taken = new Set();
-      let ok = true;
-      for (const L of lens) {
-        const coastal = land.filter(h => !taken.has(h.q + ',' + h.r) && axialDist(h) === (big ? 3 : 2) &&
-          ![...taken].some(k => { const [q, r] = k.split(',').map(Number); return Math.abs(q - h.q) + Math.abs(r - h.r) + Math.abs(q + r - h.q - h.r) <= 2; }));
-        if (!coastal.length) { ok = false; break; }
-        const path = [coastal[Math.floor(Math.random() * coastal.length)]];
-        while (path.length < L) {
-          const last = path[path.length - 1];
-          const nx = shuffle(NEIGH.slice()).map(([dq, dr]) => keys.get((last.q + dq) + ',' + (last.r + dr)))
-            .filter(h => h && !path.includes(h) && !taken.has(h.q + ',' + h.r) && axialDist(h) <= axialDist(last) &&
-              ![...taken].some(k => { const [q, r] = k.split(',').map(Number); return Math.abs(q - h.q) + Math.abs(r - h.r) + Math.abs(q + r - h.q - h.r) <= 1; }));
-          if (!nx.length) break;
-          path.push(nx[0]);
-        }
-        if (path.length < L) { ok = false; break; }
-        path.forEach(h => taken.add(h.q + ',' + h.r));
-        rivers.push(path);
-      }
-      if (ok) break;
-    }
-    const swamps = new Set([rivers[0][rivers[0].length - 1], rivers[1][rivers[1].length - 1]]);
-    const riverTerr = shuffle(big ? ['mountains', 'mountains', 'mountains', 'hills', 'hills', 'pasture', 'pasture', 'pasture']
-      : shuffle(['mountains', 'mountains', 'hills', 'hills', 'pasture', 'pasture']).slice(0, 5));
-    const rest = shuffle(big ? removeOnce(EXT_TERRAINS, ['mountains', 'mountains', 'mountains', 'hills', 'hills', 'pasture', 'pasture', 'pasture', 'desert', 'desert'])
-      : removeOnce(BASE_TERRAINS, ['mountains', 'mountains', 'hills', 'hills', 'pasture', 'pasture', 'desert']));
-    rivers.forEach((path, ri) => path.forEach((h, i) => { h.river = ri; h.riverIdx = i; h.terrain = swamps.has(h) ? 'swamp' : riverTerr.pop(); }));
-    land.filter(h => h.river === undefined).forEach(h => { h.terrain = rest.pop() || 'fields'; });
+    const at = (r, c) => land[R0.rows[r] + c];
+    const rivers = R0.rivers.map(path => path.map(([r, c]) => at(r, c)));
+    const rt = R0.terr;
+    rivers.forEach((path, ri) => path.forEach((h, i) => { h.river = ri; h.riverIdx = i; h.terrain = rt[ri][i]; }));
+    const used = rt.flat().filter(t => t !== 'swamp').concat(['desert']);
+    if (big) used.push('desert');
+    const rest = shuffle(removeOnce(big ? EXT_TERRAINS : BASE_TERRAINS, used));
+    land.filter(h => h.river === undefined).forEach(h => { h.terrain = rest.pop(); });
     const all = addSeaRing(land);
     const board = buildGraph(all);
     board.hexes.forEach((hx, i) => { if (all[i].river !== undefined) { hx.river = all[i].river; hx.riverIdx = all[i].riverIdx; } });
-    const ids = board.hexes.filter(h => isLand(h.terrain) && h.terrain !== 'swamp').map(h => h.id);
-    assignNumbers(board, ids, big ? EXT_TOKENS : removeOnce(BASE_TOKENS, [2]));
-    if (!big) { const h12 = board.hexes.find(h => h.number === 12); if (h12) h12.number2 = 2; }
-    // sitios de puente: aristas que cruza cada río (entre hexágonos seguidos y desde la fuente hacia tierra)
-    const byKey = new Map(board.hexes.map(h => [h.q + ',' + h.r, h]));
+    const noSwamp = board.hexes.filter(h => isLand(h.terrain) && h.terrain !== 'swamp').map(h => h.id);
+    if (big) {
+      // 5-6: todas las fichas de la ampliación en espiral (no se aplica lo de la «2» con la «12»)
+      if (!spiralNumbers(board, EXT_SPIRAL_TOKENS)) assignNumbers(board, noSwamp, EXT_TOKENS);
+    } else {
+      // fichas en espiral sin la «2» (B), saltando los pantanos; la «2» va con la «12»
+      if (!spiralNumbers(board, SPIRAL_TOKENS.filter((x, i) => i !== 1))) assignNumbers(board, noSwamp, removeOnce(BASE_TOKENS, [2]));
+      const h12 = board.hexes.find(h => h.number === 12); if (h12) h12.number2 = 2;
+    }
     const edgeBetween = (a, b) => a.edges.find(e => board.edges[e].hexes.includes(b.id));
     board.bridgeSites = [];
     rivers.forEach((path, ri) => {
-      const hs = path.map(h => byKey.get(h.q + ',' + h.r));
+      const hs = path.map(h => board.hexes[land.indexOf(h)]);
+      board.bridgeSites.push(sideOf(board, hs[R0.mouths[ri][0]], R0.mouths[ri][1]));
       for (let i = 0; i + 1 < hs.length; i++) board.bridgeSites.push(edgeBetween(hs[i], hs[i + 1]));
-      const last = hs[hs.length - 1], prev = hs[hs.length - 2];
-      const dq = last.q - prev.q, dr = last.r - prev.r;
-      let nx = byKey.get((last.q + dq) + ',' + (last.r + dr));
-      if (!nx || !isLand(nx.terrain) || nx.river !== undefined) nx = C.neighborsOf(board, last).find(h => isLand(h.terrain) && h.river === undefined);
-      if (nx) board.bridgeSites.push(edgeBetween(last, nx));
     });
-    placePorts(board, big ? EXT_PORTS : BASE_PORTS);
+    tbPorts(board, big);
     board.robber = board.hexes.find(h => h.terrain === 'swamp').id;
     return tbFinish(board);
   }
@@ -591,46 +603,56 @@
   function tbCaravans(big) {
     const land = tbLand(big);
     const terr = shuffle((big ? EXT_TERRAINS : BASE_TERRAINS).filter(t => t !== 'desert'));
-    const oases = big ? [{ q: -1, r: 0 }, { q: 1, r: 0 }] : [{ q: 0, r: 0 }];
-    land.forEach(h => { h.terrain = oases.some(o => o.q === h.q && o.r === h.r) ? 'oasis' : terr.pop(); });
+    // oasis en el centro (3-4) o, en 5-6, en la 3.ª fila (2.º hexágono) y la 5.ª fila (4.º hexágono), como en el reglamento
+    const oases = big ? [land[ROW56[2] + 1], land[ROW56[4] + 3]] : [land[ROW34[2] + 2]];
+    land.forEach(h => { h.terrain = oases.includes(h) ? 'oasis' : terr.pop(); });
     const board = buildGraph(addSeaRing(land));
     assignNumbers(board, board.hexes.filter(h => isLand(h.terrain) && h.terrain !== 'oasis').map(h => h.id), big ? EXT_TOKENS : BASE_TOKENS);
-    placePorts(board, big ? EXT_PORTS : BASE_PORTS);
-    board.oases = board.hexes.filter(h => h.terrain === 'oasis').map((h, i) => ({ hex: h.id, arrows: h.vertices.filter((v, k) => k % 2 === i % 2) }));
+    tbPorts(board, big);
+    // las flechas del oasis apuntan a las esquinas noreste, sur y noroeste
+    board.oases = board.hexes.filter(h => h.terrain === 'oasis').map(h => ({ hex: h.id, arrows: h.vertices.filter((v, k) => k % 2 === 0) }));
     board.robber = null;
     return tbFinish(board);
   }
 
-  // Ataque bárbaro: castillo(s) y desierto(s) en la costa; los hexágonos costeros llevan números distintos
+  // Ataque bárbaro: tableros oficiales 3-4 y 5-6
   function tbBarbarians(big) {
+    return tbBarbariansOfficial(big);
+  }
+  // Ataque bárbaro 3-4 (ilustración del reglamento): desierto arriba a la derecha, castillo abajo a la izquierda,
+  // fichas fijas; solo los terrenos se reparten al azar (10 en la costa, 7 en el interior).
+  // 5-6: castillos en los extremos de la fila del medio, desiertos al final de la 3.ª fila y al principio de la 5.ª.
+  const BARB = {
+    false: { sizes: [3, 4, 5, 4, 3], rows: ROW34, special: { '0,2': 'desert', '4,0': 'castle' },
+      tokens: [[3, 8, 0], [9, 4, 5, 10], [12, 6, 10, 8, 11], [4, 9, 3, 5], [0, 6, 2]],
+      coast: ['forest', 'forest', 'hills', 'hills', 'pasture', 'pasture', 'pasture', 'mountains', 'fields', 'fields'],
+      inner: ['forest', 'pasture', 'hills', 'mountains', 'mountains', 'fields', 'fields'] },
+    true: { sizes: [3, 4, 5, 6, 5, 4, 3], rows: ROW56, special: { '2,4': 'desert', '4,0': 'desert', '3,0': 'castle', '3,5': 'castle' },
+      tokens: [[12, 9, 3], [4, 5, 10, 8], [5, 11, 6, 3, 0], [0, 8, 10, 4, 6, 0], [0, 3, 8, 11, 9], [6, 4, 9, 10], [2, 5, 11]],
+      coast: ['forest', 'forest', 'forest', 'hills', 'hills', 'hills', 'pasture', 'pasture', 'mountains', 'mountains', 'fields', 'fields'],
+      inner: ['forest', 'forest', 'hills', 'hills', 'pasture', 'pasture', 'pasture', 'mountains', 'mountains', 'mountains', 'fields', 'fields', 'fields', 'fields'] }
+  };
+  function tbBarbariansOfficial(big) {
+    const B0 = BARB[big];
     const land = tbLand(big);
-    const R = big ? 3 : 2;
-    const outer = land.filter(h => {
-      const keys = new Set(land.map(x => x.q + ',' + x.r));
-      return NEIGH.some(([dq, dr]) => !keys.has((h.q + dq) + ',' + (h.r + dr)));
-    });
-    outer.forEach(h => { const c = hexCenter(h.q, h.r); h.ang = Math.atan2(c.y, c.x); });
-    outer.sort((a, b) => a.ang - b.ang);
-    const n = outer.length;
-    const top = outer.reduce((b, h) => (hexCenter(h.q, h.r).y < hexCenter(b.q, b.r).y ? h : b), outer[0]);
-    const ti = outer.indexOf(top);
-    const special = big ? { [ti]: 'castle', [(ti + n / 2) % n]: 'castle', [(ti + 4) % n]: 'desert', [(ti + n / 2 + 4) % n]: 'desert' }
-      : { [ti]: 'castle', [(ti + n / 2) % n]: 'desert' };
-    const coastTerr = shuffle(big ? ['forest', 'forest', 'forest', 'hills', 'hills', 'hills', 'pasture', 'pasture', 'mountains', 'mountains', 'fields', 'fields']
-      : ['forest', 'forest', 'hills', 'hills', 'pasture', 'pasture', 'pasture', 'mountains', 'fields', 'fields']);
-    outer.forEach((h, i) => { h.terrain = special[i] || coastTerr.pop(); h.coastal = !special[i]; });
-    const inner = land.filter(h => !outer.includes(h));
-    const innerTerr = shuffle(big ? ['forest', 'forest', 'hills', 'hills', 'pasture', 'pasture', 'pasture', 'mountains', 'mountains', 'mountains', 'fields', 'fields', 'fields', 'fields']
-      : ['forest', 'pasture', 'hills', 'mountains', 'mountains', 'fields', 'fields']);
-    inner.forEach(h => { h.terrain = innerTerr.pop(); });
+    const coastTerr = shuffle(B0.coast.slice());
+    const innerTerr = shuffle(B0.inner.slice());
+    const last = B0.sizes.length - 1;
+    B0.sizes.forEach((n, r) => { for (let c = 0; c < n; c++) {
+      const h = land[B0.rows[r] + c];
+      const outer = r === 0 || r === last || c === 0 || c === n - 1;
+      const sp = B0.special[r + ',' + c];
+      if (sp) h.terrain = sp;
+      else { h.terrain = outer ? coastTerr.pop() : innerTerr.pop(); h.coastal = outer; }
+      if (B0.tokens[r][c]) h.number = B0.tokens[r][c];
+    } });
     const all = addSeaRing(land);
     const board = buildGraph(all);
     board.hexes.forEach((hx, i) => { if (all[i].coastal) hx.coastal = true; });
-    const coastNums = big ? [2, 3, 4, 5, 5, 6, 8, 9, 9, 10, 11, 12] : [2, 3, 4, 5, 6, 8, 9, 10, 11, 12];
-    assignNumbers(board, board.hexes.filter(h => h.coastal).map(h => h.id), coastNums);
-    assignNumbers(board, board.hexes.filter(h => isLand(h.terrain) && !h.coastal && h.terrain !== 'castle' && h.terrain !== 'desert').map(h => h.id),
-      big ? removeOnce(EXT_TOKENS, [2, 12].concat(coastNums)) : [3, 4, 5, 6, 8, 9, 10]);
-    placePorts(board, big ? EXT_PORTS : BASE_PORTS);
+    tbPorts(board, big);
+    return barbFinish(board);
+  }
+  function barbFinish(board) {
     // orden horario de comprobación: empieza en un hexágono costero junto a un castillo
     const castles = board.hexes.filter(h => h.terrain === 'castle');
     const ring = board.hexes.filter(h => h.coastal || h.terrain === 'castle' || (h.terrain === 'desert' && C.neighborsOf(board, h).some(x => x.terrain === 'sea')));
@@ -658,38 +680,59 @@
     hex.plaza = id;
   }
 
-  // Mercaderes y Bárbaros: hexágonos comerciales en la costa (con plaza central), 3 bárbaros en caminos
+  // Mercaderes y Bárbaros: tableros oficiales 3-4 y 5-6 (hexágonos comerciales con plaza central)
   function tbTraders(big) {
-    const land = tbLand(big);
-    const keys = new Set(land.map(x => x.q + ',' + x.r));
-    const seaN = h => NEIGH.filter(([dq, dr]) => !keys.has((h.q + dq) + ',' + (h.r + dr))).length;
-    const outer = land.filter(h => seaN(h) > 0);
-    outer.forEach(h => { const c = hexCenter(h.q, h.r); h.ang = Math.atan2(c.y, c.x); });
-    outer.sort((a, b) => a.ang - b.ang);
-    const kinds = big ? ['castle', 'quarry', 'glassworks', 'desert', 'quarry', 'glassworks', 'desert', 'quarry', 'glassworks'] : ['castle', 'quarry', 'glassworks'];
-    const corners = outer.filter(h => seaN(h) === 3);
-    let spots;
-    if (big) {
-      const n = outer.length, off = Math.floor(Math.random() * 2);
-      spots = kinds.map((k, i) => outer[(off + Math.round(i * n / kinds.length)) % n]);
-    } else {
-      const off = Math.floor(Math.random() * 2);
-      spots = [0, 2, 4].map(i => corners[(i + off) % corners.length]);
-    }
-    spots.forEach((h, i) => { h.terrain = kinds[i]; });
-    const terr = shuffle(big ? removeOnce(EXT_TERRAINS, ['desert', 'desert', 'forest', 'pasture', 'fields', 'hills', 'mountains', 'pasture', 'fields'])
-      : removeOnce(BASE_TERRAINS, ['desert', 'pasture', 'fields']));
-    land.filter(h => !h.terrain).forEach(h => { h.terrain = terr.pop() || 'fields'; });
-    const board = buildGraph(addSeaRing(land));
-    const num = board.hexes.filter(h => isLand(h.terrain) && !TRADE_HEXES.includes(h.terrain) && h.terrain !== 'desert').map(h => h.id);
-    assignNumbers(board, num, big ? shuffle(EXT_TOKENS.slice()).slice(0, num.length) : removeOnce(BASE_TOKENS, [2, 12]));
-    board.hexes.filter(h => TRADE_HEXES.includes(h.terrain)).forEach(h => {
-      // plaza unida a las esquinas que tocan otro terreno (en 5-6, a todas: sus hexágonos permiten construir en la costa)
-      const cs = h.vertices.filter(v => big || board.vertices[v].hexes.some(o => o !== h.id && isLand(board.hexes[o].terrain)));
-      addPlaza(board, h, cs);
-      h.tradeCoastBuild = big;
+    return big ? tbTraders56() : tbTraders34();
+  }
+  // Mercaderes y Bárbaros 5-6 (ilustración del reglamento 5-6): isla de 4-5-6-7-6-5-4 hexágonos con 3 canteras, 3 vidrierías,
+  // el castillo en el centro y 2 desiertos; fichas fijas; los puertos se reparten por la costa (el marco es distinto).
+  const TR56 = [
+    ['quarry', 6, 10, 'glassworks'], [4, 'desert', 3, 12, 8], [3, 5, 10, 5, 9, 11], ['glassworks', 8, 12, 'castle', 2, 6, 'quarry'],
+    [11, 9, 4, 9, 5, 3], [6, 2, 11, 'desert', 4], ['quarry', 10, 8, 'glassworks']
+  ];
+  function tbTraders56() {
+    const land = rowsToHexes(TR56.map(r => r.map(() => 'x').join(' ')));
+    const terr = shuffle(removeOnce(EXT_TERRAINS, ['desert', 'desert']));
+    let k = 0;
+    TR56.flat().forEach(c => {
+      const h = land[k++];
+      if (typeof c === 'string') h.terrain = c;
+      else { h.terrain = terr.pop(); h.number = c; }
     });
-    placePorts(board, big ? EXT_PORTS : BASE_PORTS);
+    const board = buildGraph(addSeaRing(land));
+    const starts = [0];
+    TR56.forEach(r => starts.push(starts[starts.length - 1] + r.length));
+    const hx = (r, c) => board.hexes[starts[r] + c];
+    board.barbStart = [sideOf(board, hx(0, 2), 'SE'), sideOf(board, hx(3, 1), 'SW'), sideOf(board, hx(5, 3), 'E')];
+    board.hexes.filter(h => TRADE_HEXES.includes(h.terrain)).forEach(h => {
+      // las canteras y vidrierías de la ampliación permiten construir también en la costa (6 esquinas); el castillo, en sus 6
+      addPlaza(board, h, h.vertices.slice());
+      h.tradeCoastBuild = true;
+    });
+    placePorts(board, EXT_PORTS);
+    board.robber = null;
+    return tbFinish(board);
+  }
+
+  // Mercaderes y Bárbaros 3-4 (ilustración del reglamento): castillo en la esquina oeste, cantera en la noreste y vidriería
+  // en la sureste; fichas en espiral sin la «2» ni la «12»; los 3 bárbaros empiezan en los caminos marcados con una cruz.
+  function tbTraders34() {
+    const land = tbLand(false);
+    const at = (r, c) => land[ROW34[r] + c];
+    at(2, 0).terrain = 'castle'; at(0, 2).terrain = 'quarry'; at(4, 2).terrain = 'glassworks';
+    const terr = shuffle(removeOnce(BASE_TERRAINS, ['desert', 'pasture', 'fields']));
+    land.filter(h => !h.terrain).forEach(h => { h.terrain = terr.pop(); });
+    const board = buildGraph(addSeaRing(land));
+    const seq = SPIRAL_TOKENS.filter(x => x !== 2 && x !== 12);
+    if (!spiralNumbers(board, seq)) assignNumbers(board, board.hexes.filter(h => isLand(h.terrain) && !TRADE_HEXES.includes(h.terrain)).map(h => h.id), removeOnce(BASE_TOKENS, [2, 12]));
+    const hx = (r, c) => board.hexes[ROW34[r] + c];
+    board.barbStart = [sideOf(board, hx(0, 1), 'SE'), sideOf(board, hx(2, 1), 'SW'), sideOf(board, hx(3, 2), 'E')];
+    board.hexes.filter(h => TRADE_HEXES.includes(h.terrain)).forEach(h => {
+      const cs = h.vertices.filter(v => board.vertices[v].hexes.some(o => o !== h.id && isLand(board.hexes[o].terrain)));
+      addPlaza(board, h, cs);
+      h.tradeCoastBuild = false;
+    });
+    tbPorts(board, false);
     board.robber = null;
     return tbFinish(board);
   }

@@ -1,4 +1,4 @@
-Esto es lo que queda pendiente (actualizado el 17-11-2026), de lo más grande a lo más chico.
+Esto es lo que queda pendiente (actualizado el 18-11-2026), de lo más grande a lo más chico.
 
 YA HECHO EN ESTA SESIÓN
 - Navegantes completo: mapa oficial de «Hacia nuevas costas» (3 y 4) con sus puertos, escenarios 2 a 9,
@@ -42,8 +42,38 @@ el empate de defensores y la ciudad saqueada (pruebas en tools/test-ck.js, proba
 - Queda propio solo lo que el reglamento no muestra: valores de las fichas de las zonas y de las guaridas (boca abajo en los
   dibujos) y el escenario 1 para 5-6 (el reglamento recomienda no jugarlo).
 
-5. Detalles de Mercaderes y Bárbaros
-Ver docs/mercaderes-y-barbaros.md («Decisiones propias» y «Simplificaciones»).
+5. Mercaderes y Bárbaros: HECHO.
+- El jugador elige la carretera dañada del Terremoto y el hexágono de la Intriga.
+- Oro en el comercio entre jugadores (lo dice el reglamento 2020), y Catan para dos construye para el neutral también con las
+  carreteras gratis.
+- Tableros oficiales transcritos de las ilustraciones (3-4 y 5-6): ríos, oasis, Ataque bárbaro y Mercaderes y Bárbaros, con
+  puertos en los lugares del marco; tabla del tren de equipaje del tablero del carro.
+- Arreglado: en el Ataque bárbaro 5-6 algunas partidas entre bots no terminaban (la IA no compraba cartas con el mazo vacío,
+  aunque se rearma con las descartadas).
+- Caladeros 3-4 en los lugares de la ilustración y pilas de mercancías de 12 (18 en 5-6) con 6 de cada tipo, según el reglamento.
 
-6. Ediciones
-Todo sigue la 5.ª edición. No se revisaron las diferencias de la 6.ª edición de 2025.
+6. Ediciones: REVISADO. Las diferencias de la 6.ª edición (2025) están en docs/sexta-edicion.md. Casi todo son nombres y
+textos nuevos. Cambios de reglas encontrados:
+- Navegantes: el pirata puede ir al marco; la Gran Muralla pide un solo edificio.
+- Piratas y Exploradores: se puede devolver una pieza para hacer sitio a un colono o una tripulación.
+- Mercaderes y Bárbaros: oro en el comercio, trenes de mercancías que se fusionan y cambios en Catan para dos (se ven con el punto 5).
+- Ciudades y Caballeros: sin cambios; se corrigieron dos reglas de la 5.ª que faltaban (metrópolis sin ciudad libre y ciudad
+  saqueada sin poblados de reserva).
+HECHO: casilla «Reglas 2025» en el menú de Navegantes y de Piratas y Exploradores (ver docs/sexta-edicion.md).
+
+7. Decisiones menores y fichas: REVISADO (18-11-2026).
+- Piratas y Exploradores: fichas de las zonas y bancos de pesca por zona (componentes de 2025 y planchas de 2020); las zonas se
+  barajan al azar. Solo quedan propios 5 valores de fichas de guarida, que no aparecen en ningún reglamento.
+- Navegantes 5-6: 11 puertos en «A través del desierto» y en «Tela para Catan» (mapas de 2025). Las demás decisiones coinciden
+  con el texto del reglamento.
+- Mercaderes y Bárbaros: la votación de camellos es pública y el jugador 2 puede usar oro en el escenario 5 (reglamento 2025).
+
+8. Prueba en red (LAN) con dos pestañas: HECHO (18-11-2026). Probado con clics del invitado: ciudad saqueada, Puerto comercial
+   y Desertor (Ciudades y Caballeros), Terremoto y oro en el comercio (Mercaderes y Bárbaros), y la opción «Reglas 2025» llega
+   a la partida de Piratas y Exploradores. Sin errores en ninguna de las dos pestañas.
+
+LO ÚNICO QUE QUEDA
+- 5 valores de fichas de guarida de Piratas y Exploradores (no figuran en ningún reglamento; hace falta el juego físico).
+- Hacer el commit y subir las ramas a GitHub (el push necesita tus credenciales).
+
+El detalle de lo que no se pudo corregir está en docs/sin-resolver.md.

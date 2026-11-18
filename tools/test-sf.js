@@ -500,5 +500,25 @@ check(SF.scName(2, true) === 'Las seis islas' && SF.scName(2, false) === 'Las cu
   check(ended === 9, 'los 9 escenarios se juegan hasta el final entre bots (' + ended + '/9)');
 }
 
+// ================= reglas 2025 =================
+{
+  const s = game(1, 4, { rules2025: true });
+  toMain(s);
+  const p = s.current;
+  check(s.rules2025 && s.pirate !== null, 'reglas 2025: la opción llega a la partida');
+  s.phase = 'robber'; s.robberReturn = 'main';
+  check(C.canPirateFrame(s, p) && !C.apply(s, p, { type: 'moveRobber', frame: true }).error && s.pirate === null && s.pirateOff && s.phase === 'main', 'reglas 2025: el pirata puede ir al marco');
+  s.phase = 'robber'; s.robberReturn = 'main';
+  const seaHex = C.robberHexes(s, p).find(h => s.board.hexes[h].terrain === 'sea');
+  check(seaHex !== undefined && !C.apply(s, p, { type: 'moveRobber', hex: seaHex }).error && s.pirate === seaHex && !s.pirateOff, 'reglas 2025: desde el marco el pirata vuelve al mar');
+  const s0 = game(1, 4);
+  toMain(s0); s0.phase = 'robber'; s0.robberReturn = 'main';
+  check(!C.canPirateFrame(s0, s0.current) && !!C.apply(s0, s0.current, { type: 'moveRobber', frame: true }).error, 'sin la opción el pirata no va al marco');
+  // Gran Muralla: un edificio en el páramo basta con las reglas 2025
+  const w = game(8, 4, { rules2025: true }), w0 = game(8, 4);
+  [w, w0].forEach(t => { const v = t.sf.brown.find(x => !t.buildings[x] && t.board.vertices[x].adj.every(a => !t.buildings[a])); t.buildings[v] = { owner: t.current, type: 'settlement' }; });
+  check(SF.wonderReqOk(w, w.current, 'wall') && !SF.wonderReqOk(w0, w0.current, 'wall'), 'reglas 2025: la Gran Muralla pide un solo edificio (antes, dos poblados)');
+}
+
 console.log(fails ? fails + ' prueba(s) fallaron' : 'Todas las pruebas pasaron');
 process.exit(fails ? 1 : 0);

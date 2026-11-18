@@ -224,7 +224,7 @@
   <h3>3. Las caravanas</h3>
   <ul><li>En el centro hay un <b>oasis</b> con 3 flechas, de las que salen 3 caravanas de camellos por los caminos (sin bifurcarse).</li>
   <li>Al terminar un turno en el que alguien construyó un poblado o una ciudad, se <b>vota</b>: cada jugador elige hacia dónde avanza el camello
-  y ofrece lana y cereal. Gana la opción con mayoría; los votos se pagan al banco. Si nadie ofrece nada, decide quien terminó el turno.</li>
+  y ofrece lana y cereal, por turnos y boca arriba. Gana la opción con mayoría; los votos se pagan al banco. Si nadie ofrece nada, decide quien terminó el turno.</li>
   <li>Un poblado o ciudad entre <b>2 camellos</b> vale <b>+1 PV</b>. Las carreteras con camello cuentan <b>doble</b> para la Gran Ruta.</li></ul>
   <h3>4. Ataque bárbaro</h3>
   <ul><li>El <b>castillo</b> está en el centro. La segunda pieza inicial es una <b>ciudad</b>. No hay ladrón ni Gran Ejército: un 7 solo obliga a descartar.</li>
@@ -247,7 +247,7 @@
   <li><b>Mercancías:</b> en cada plaza cargas una (si vas vacío) y la llevas a su destino: vidrio y mármol al castillo, herramientas a la cantera
   y arena a la vidriería. Cada entrega da <b>1 PV</b> y oro según tu tren de equipaje.</li>
   <li><b>Tren de equipaje</b> (5 niveles): más movimientos, más oro por entrega y la posibilidad de <b>ahuyentar bárbaros</b> con el dado
-  (nivel 2: un 6; 3-4: 5-6; 5: 4-6). El nivel 5 vale 1 PV.</li>
+  (nivel 2: un 6; 3: 5-6; 4: 4-6; 5: 3-6). Movimientos 4, 5, 6, 7, 7 y oro por entrega 1 a 5. El nivel 5 vale 1 PV.</li>
   <li>Hay 3 <b>bárbaros</b> en caminos. El mazo propio tiene <b>Caballero</b> (mueves un bárbaro y robas a quien tenga carretera ahí),
   <b>Construcción de carreteras</b>, <b>Viaje rápido</b> (tu carreta vuelve a moverse) y 3 cartas de 1 PV.</li></ul>
   <h3>2 jugadores</h3>
@@ -257,10 +257,11 @@
   <li>El <b>jugador 1</b> (el de turno) tira, comercia con todos, construye y mueve. Después juega el <b>jugador 2</b> (el tercero a su izquierda):
   <b>solo comercia con el banco</b>, construye y mueve sus caballeros o su carreta. También puede ganar en ese momento.</li>
   <li>Las votaciones de camellos y la expulsión de bárbaros se resuelven al terminar cada una de las dos partes.</li>
-  <li>En el escenario 5 no se repiten el 2 y el 12, y el jugador 2 no puede comprar con oro.</li></ul>
-  <p class="muted">Adaptación: la forma de los ríos, la posición de caladeros, castillo y hexágonos comerciales, el reparto de mercancías y la
-  tabla del tren de equipaje son propios (el reglamento solo los muestra en las ilustraciones). El terremoto elige solo la carretera dañada,
-  la Intriga elige el hexágono que más te amenaza y el oro no se ofrece en el comercio entre jugadores.</p>`;
+  <li>En el escenario 5 no se repiten el 2 y el 12. El jugador 2 también puede comprar con oro (reglamento 2025).</li></ul>
+  <p class="muted">Tableros, fichas, ríos, oasis, castillos, hexágonos comerciales, puertos y tabla del tren de equipaje siguen las
+  ilustraciones del reglamento. En el Terremoto cada jugador elige su carretera dañada, en la Intriga eliges el hexágono, y en los
+  escenarios con oro se puede comerciar oro con otros jugadores. Los caladeros (3-4) y las pilas de mercancías también siguen
+  el reglamento.</p>`;
   const EXPLORERS = `
   <h2>Piratas y Exploradores (2-6 jugadores)</h2>
   <p>Una campaña de 5 escenarios en los tableros del reglamento. Empiezas en la <b>isla inicial</b> (15 hexágonos, sin desierto,
@@ -341,7 +342,10 @@
 
   const VARIANTS = `
   <h2>Variantes opcionales</h2>
-  <ul><li><b>Puntos para ganar:</b> puedes cambiar los PV necesarios para ganar (partidas cortas o largas).</li>
+  <ul><li><b>Reglas 2025</b> (6.ª edición; Navegantes y Piratas y Exploradores): en Navegantes, con un 7 puedes mandar el pirata
+  al marco (no roba ni bloquea) y la Gran Muralla pide un solo edificio; en Piratas y Exploradores, si no queda sitio en tus muelles
+  ni barcos, devuelves una pieza para hacer lugar a un colono o una tripulación nuevos.</li>
+  <li><b>Puntos para ganar:</b> puedes cambiar los PV necesarios para ganar (partidas cortas o largas).</li>
   <li><b>Ladrón amistoso</b> (variante oficial de <i>Mercaderes y Bárbaros</i>): el ladrón no puede colocarse
   junto a un jugador con 2 PV o menos, ni se le puede robar.</li>
   <li><b>Cartas de evento</b> (<i>Mercaderes y Bárbaros</i>; Clásico y Mercaderes y Bárbaros): en vez de tirar los dados se roba una carta

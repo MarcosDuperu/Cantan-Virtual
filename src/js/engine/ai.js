@@ -161,6 +161,8 @@
     return null;
   }
 
+  // quedan cartas de desarrollo (en el Ataque bárbaro el mazo se rearma con las descartadas al comprar)
+  const devAvail = s => s.devDeck.length > 0 || !!(s.tb && s.tb.devDiscard && s.tb.devDiscard.length);
   const ACTION_FOR = { road: 'buildRoad', ship: 'buildShip', settlement: 'buildSettlement', city: 'buildCity', dev: 'buyDev' };
   function actionFor(g) {
     const a = { type: ACTION_FOR[g.what] };
@@ -260,7 +262,7 @@
   function respondTrade(s, pid) {
     const t = s.trade;
     const P = s.players[pid];
-    if (!hasRes(P.resources, t.get)) return { type: 'respondTrade', id: t.id, accept: false };
+    if (!hasRes(P.resources, t.get) || (t.get.gold || 0) > (P.gold || 0)) return { type: 'respondTrade', id: t.id, accept: false };
     if (C.publicVP(s, t.from) >= s.vpTarget - 2) return { type: 'respondTrade', id: t.id, accept: false };
     const prod = production(s, pid);
     const g = goal(s, pid, prod);
@@ -269,7 +271,8 @@
     const after = Object.assign({}, P.resources);
     RES.forEach(k => { after[k] += (t.give[k] || 0) - (t.get[k] || 0); });
     const aft = missing(after, cost).n;
-    const gain = total(t.give) - total(t.get);
+    // el oro vale media carta (2 de oro compran 1 recurso)
+    const gain = total(t.give) + (t.give.gold || 0) / 2 - total(t.get) - (t.get.gold || 0) / 2;
     const accept = aft < before || (aft === before && gain > 0) || (aft === before && gain === 0 && Math.random() < 0.15);
     return { type: 'respondTrade', id: t.id, accept };
   }
@@ -472,7 +475,7 @@
     // mejoras de ciudad
     if (CK.citiesOf(s, pid).length) {
       const crane = s.ck.crane === pid && !special;
-      const areas = CK.AREAS.filter(ar => P.improve[ar] < 5).sort((x, y) => (P.resources[CK.AREA_COMM[y]] - P.improve[y]) - (P.resources[CK.AREA_COMM[x]] - P.improve[x]));
+      const areas = CK.AREAS.filter(ar => P.improve[ar] < 5 && (P.improve[ar] < 3 || CK.canHoldMetropolis(s, pid, ar))).sort((x, y) => (P.resources[CK.AREA_COMM[y]] - P.improve[y]) - (P.resources[CK.AREA_COMM[x]] - P.improve[x]));
       for (const ar of areas) if (P.resources[CK.AREA_COMM[ar]] >= P.improve[ar] + 1 - (crane ? 1 : 0)) return { type: 'improve', area: ar };
     }
     // objetivo de construcción normal (ciudad, poblado, carretera)
@@ -608,7 +611,12 @@
     const myShips = Object.values(s.pe.ships).filter(x => x.owner === pid);
     const shipEdges = P.pieces.ship > 0 ? PE.shipBuildEdges(s, pid) : [];
     if (!myShips.length && shipEdges.length) return { what: 'ship', cost: PE.COST.ship, at: shipEdges[0] };
-    const target = item => { const t = PE.cargoTargets(s, pid, item); return t.ships.length || t.docks.length ? t : null; };
+    // la IA solo construye donde hay sitio libre (no devuelve piezas para hacer lugar)
+    const target = item => {
+      const t = PE.cargoTargets(s, pid, item);
+      const room = t.docks.some(v => PE.space(s.pe.docks[v] || []) >= PE.SIZE[item]) || t.ships.some(id => PE.space(s.pe.ships[id].cargo) >= PE.SIZE[item]);
+      return room ? t : null;
+    };
     const hiddenLeft = s.board.hexes.some(h => h.hidden);
     if (P.pieces.settler > 0 && P.pieces.settlement > peInPlay(s, pid, 'settler') && peInPlay(s, pid, 'settler') === 0 &&
       (hiddenLeft || peFoundSpots(s, pid).length) && target('settler')) return { what: 'settler', cost: PE.COST.settler };
@@ -626,7 +634,8 @@
     if (g.what === 'settlement') return { type: 'buildSettlement', vertex: g.at };
     if (g.what === 'ship') return { type: 'buildShip', edge: g.at };
     if (g.what === 'road') return { type: 'buildRoad', edge: g.at };
-    const t = PE.cargoTargets(s, pid, g.what);
+    const all = PE.cargoTargets(s, pid, g.what);
+    const t = { docks: all.docks.filter(v => PE.space(s.pe.docks[v] || []) >= PE.SIZE[g.what]), ships: all.ships.filter(id => PE.space(s.pe.ships[id].cargo) >= PE.SIZE[g.what]) };
     const a = { type: g.what === 'settler' ? 'buildSettler' : 'buildCrew' };
     const empty = t.ships.find(id => !s.pe.ships[id].cargo.length);
     if (empty !== undefined) a.ship = empty;
@@ -915,7 +924,7 @@
     }
     if (scn === 5 && P.wagon.level < 5 && hasRes(P.resources, TB.TRAIN[P.wagon.level + 1].cost) && (P.wagon.level < 3 || total(P.resources) >= 6))
       return { type: 'upgradeWagon' };
-    if (TB.usesGold(s) && P.gold >= 2 && s.tb.goldBuys < 2 && !(s.tb.p2 && scn === 5)) {
+    if (TB.usesGold(s) && P.gold >= 2 && s.tb.goldBuys < 2 ) {
       const rich = scn !== 2 || P.gold > Math.min(...TB.real(s).map(p => p.gold)) + 3;
       const g = goal(s, pid, production(s, pid));
       if (rich && g && COST[g.what]) {
@@ -950,6 +959,14 @@
       const to = pair.to !== null ? pair.to : TB.giveTargets(s, pid).sort((a, b) => C.publicVP(s, a) - C.publicVP(s, b))[0];
       return { type: 'tbGive', resources: { [k]: 1 }, to };
     }
+    if (s.phase === 'tbDamage') {
+      if (!s.tb.pending.who.includes(pid)) return null;
+      // la carretera que menos estorba: preferentemente una del extremo
+      const own = TB.damageable(s, pid);
+      const open = own.filter(e => s.board.edges[e].v.some(v => !(s.buildings[v] && s.buildings[v].owner === pid) &&
+        !s.board.vertices[v].edges.some(o => o !== e && s.roads[o] && s.roads[o].owner === pid)));
+      return { type: 'damageRoad', edge: (open.length ? open : own)[0] };
+    }
     if (s.phase === 'tbVote') return s.tb.vote.order[s.tb.vote.idx] === pid ? tbVote(s, pid) : null;
     if (s.current !== pid) return undefined;
     switch (s.phase) {
@@ -970,6 +987,12 @@
         const hot = s.board.hexes.filter(h => h.coastal && h.barbs);
         const val = e => { const E = s.board.edges[e]; return hot.reduce((a, h) => a + (E.hexes.includes(h.id) ? (myHex(h) ? 6 : 3) : Math.max(0, 2 - Math.hypot(E.x - h.x, E.y - h.y))), 0) + Math.random() * 0.2; };
         return { type: 'placeKnight', edge: spots.sort((a, b) => val(b) - val(a))[0] };
+      }
+      case 'tbIntrigue': {
+        // el hexágono que más amenaza tus edificios (y si no, el que más bárbaros tiene)
+        const mine = h => h.vertices.some(v => s.buildings[v] && s.buildings[v].owner === pid) ? 10 : 0;
+        const hs = TB.intrigueHexes(s).map(id => s.board.hexes[id]).sort((x, y) => (mine(y) + y.barbs) - (mine(x) + x.barbs));
+        return { type: 'intrigue', hex: hs[0].id };
       }
       case 'tbTreason': {
         const leader = tbLeader(s, pid);
@@ -1072,7 +1095,7 @@
       if (s.specialBuilder !== pid) return null;
       const g = goal(s, pid, prod);
       if (g && COST[g.what] && hasRes(P.resources, COST[g.what])) return actionFor(g);
-      if (total(P.resources) > 7 && hasRes(P.resources, COST.dev) && s.devDeck.length) return { type: 'buyDev' };
+      if (total(P.resources) > 7 && hasRes(P.resources, COST.dev) && devAvail(s)) return { type: 'buyDev' };
       return { type: 'endTurn' };
     }
 
@@ -1127,7 +1150,7 @@
     if (city && P.pieces.city > 0 && hasRes(P.resources, COST.city)) return { type: 'buildCity', vertex: city.v };
     const spot = P.pieces.settlement > 0 ? bestSettlementSpot(s, pid, prod) : null;
     if (spot && hasRes(P.resources, COST.settlement)) return { type: 'buildSettlement', vertex: spot.v };
-    if (hasRes(P.resources, COST.dev) && s.devDeck.length && (total(P.resources) >= 6 || !g || g.what === 'dev')) return { type: 'buyDev' };
+    if (hasRes(P.resources, COST.dev) && devAvail(s) && (total(P.resources) >= 6 || !g || g.what === 'dev')) return { type: 'buyDev' };
     if (total(P.resources) > 7) {
       const rt = routeTarget(s, pid, prod);
       if (rt && hasRes(P.resources, COST[rt.kind])) return { type: rt.kind === 'ship' ? 'buildShip' : 'buildRoad', edge: rt.e };
@@ -1183,7 +1206,7 @@
         if (bt) { mem.sfShipTrade = s.turn; return bt; }
       }
       if (P.devCards.some(c => c.type === 'knight' && c.turn !== s.turn) && C.playableDev(s, pid).includes('knight')) return { type: 'playDev', card: 'knight' };
-      if (SF.routeDone(s, pid) && hasRes(P.resources, COST.dev) && s.devDeck.length) return { type: 'buyDev' };
+      if (SF.routeDone(s, pid) && hasRes(P.resources, COST.dev) && devAvail(s)) return { type: 'buyDev' };
     }
     if (id === 8) {
       const w = s.sf.wonders.find(x => x.owner === pid);

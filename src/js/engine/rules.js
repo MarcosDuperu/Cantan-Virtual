@@ -99,6 +99,8 @@
       pairs: !!mode.pairs && !special, specialBuild: special, pair: null,
       vpTarget: (config.options && config.options.vpTarget) || mode.vp,
       friendlyRobber: !!(config.options && config.options.friendlyRobber),
+      // Reglas de la 6.ª edición (2025): cambios de Navegantes y de Piratas y Exploradores
+      rules2025: !!(config.options && config.options.rules2025), pirateOff: false,
       board, players, bank, devDeck: deck,
       buildings: {}, roads: {},
       robber: board.robber, pirate: board.pirate,
@@ -191,7 +193,10 @@
     return s.board.edges.filter(e => canPlaceRoute(s, pid, e.id, kind, setupVertex)).map(e => e.id);
   }
   function validCities(s, pid) {
-    return Object.keys(s.buildings).map(Number).filter(v => s.buildings[v].owner === pid && s.buildings[v].type === 'settlement');
+    const list = Object.keys(s.buildings).map(Number).filter(v => s.buildings[v].owner === pid && s.buildings[v].type === 'settlement');
+    // Ciudades y Caballeros: una ciudad saqueada sin poblados de reserva queda tumbada y se mejora antes que las demás
+    const downed = list.filter(v => s.buildings[v].downed);
+    return downed.length ? downed : list;
   }
 
   function isShipOpen(s, pid, e) {
@@ -240,7 +245,7 @@
         if (h.id === s.robber) continue;
         if (s.friendlyRobber && h.vertices.some(v => s.buildings[v] && s.buildings[v].owner !== pid && publicVP(s, s.buildings[v].owner) <= 2)) continue;
         out.push(h.id);
-      } else if (MODES[s.mode].ships && h.terrain === 'sea' && s.pirate !== null && h.id !== s.pirate) {
+      } else if (MODES[s.mode].ships && h.terrain === 'sea' && (s.pirate !== null || s.pirateOff) && h.id !== s.pirate) {
         out.push(h.id);
       }
     }
@@ -621,11 +626,26 @@
     }
   }
 
+  // Navegantes (reglas 2025): con un 7 se puede mandar el pirata al marco (fuera del mar); allí no roba ni bloquea
+  function canPirateFrame(s, pid) {
+    return !!(s.rules2025 && s.sf && !s.sf.fleet && s.pirate !== null && robberHexes(s, pid).some(h => hexOf(s, h).terrain === 'sea'));
+  }
+
   function doRobber(s, pid, a) {
+    if (a.frame) {
+      if (!canPirateFrame(s, pid)) return err('Ahora no puedes mandar el pirata al marco');
+      s.pirate = null;
+      s.pirateOff = true;
+      log(s, s.players[pid].name + ' manda el pirata al marco.', pid);
+      event(s, { type: 'robber', pirate: true, pid, hex: null });
+      s.phase = s.robberReturn || 'main';
+      s.robberReturn = null;
+      return;
+    }
     if (!robberHexes(s, pid).includes(a.hex)) return err('Hexágono no válido');
     const h = hexOf(s, a.hex);
     const pirate = h.terrain === 'sea';
-    if (pirate) s.pirate = a.hex; else s.robber = a.hex;
+    if (pirate) { s.pirate = a.hex; s.pirateOff = false; } else s.robber = a.hex;
     log(s, s.players[pid].name + ' mueve ' + (pirate ? 'el pirata.' : 'el ladrón.'), pid);
     event(s, { type: 'robber', pirate, pid, hex: a.hex });
     const cands = stealCandidates(s, pid, a.hex);
@@ -667,12 +687,13 @@
       log(s, P.name + ' construye ' + (kind === 'ship' ? 'un barco.' : 'una carretera.'), pid);
       event(s, { type: 'build', what: kind, pid, at: a.edge });
       updateLongestRoad(s);
-      if (s.tb) C.TB.afterBuild(s, pid, kind, a.edge, free);
       if (free) {
         s.freeRoads--;
         const canMore = (P.pieces.road > 0 && validRoutes(s, pid, 'road').length) || (P.pieces.ship > 0 && validRoutes(s, pid, 'ship').length);
         if (s.freeRoads <= 0 || !canMore) { s.freeRoads = 0; s.phase = s.roadReturn; s.roadReturn = null; }
       }
+      // después de ajustar la construcción gratis (puede abrir la construcción para un neutral en Catan para dos)
+      if (s.tb) C.TB.afterBuild(s, pid, kind, a.edge, free);
       if (s.sf) C.SF.afterRoute(s, pid, kind, a.edge);
     } else if (a.type === 'buildSettlement') {
       if (P.pieces.settlement <= 0) return err('No te quedan poblados');
@@ -695,14 +716,15 @@
       updateLongestRoad(s);
       if (s.tb) C.TB.afterBuild(s, pid, 'settlement', a.vertex);
     } else if (a.type === 'buildCity') {
-      if (P.pieces.city <= 0) return err('No te quedan ciudades');
-      if (!hasRes(P.resources, COST.city)) return err('Recursos insuficientes');
       const b = s.buildings[a.vertex];
+      if (P.pieces.city <= 0 && !(b && b.downed)) return err('No te quedan ciudades');
+      if (!hasRes(P.resources, COST.city)) return err('Recursos insuficientes');
       if (!b || b.owner !== pid || b.type !== 'settlement') return err('Debes mejorar uno de tus poblados');
+      if (!validCities(s, pid).includes(a.vertex)) return err('Primero debes volver a mejorar tu ciudad saqueada');
       pay(s, pid, COST.city);
       b.type = 'city';
-      P.pieces.city--;
-      P.pieces.settlement++;
+      if (b.downed) delete b.downed;
+      else { P.pieces.city--; P.pieces.settlement++; }
       log(s, P.name + ' construye una ciudad.', pid);
       event(s, { type: 'build', what: 'city', pid, at: a.vertex });
       if (isCK(s)) C.CK.afterCity(s, pid);
@@ -802,9 +824,10 @@
     log(s, P.name + ' cambia ' + cost + ' ' + RES_NAME[a.give] + ' por ' + n + ' ' + RES_NAME[a.get] + ' con el banco.', pid);
   }
 
-  // En Piratas y Exploradores el oro se comercia entre jugadores como una carta más
-  const tradeKeys = s => isPE(s) ? KEYS.concat('gold') : KEYS;
-  const tradeHand = (s, pid) => isPE(s) ? Object.assign({}, s.players[pid].resources, { gold: s.players[pid].gold }) : s.players[pid].resources;
+  // En Piratas y Exploradores y en los escenarios de Mercaderes y Bárbaros con oro, el oro se comercia entre jugadores
+  const goldTrades = s => isPE(s) || !!(s.tb && C.TB.usesGold(s));
+  const tradeKeys = s => goldTrades(s) ? KEYS.concat('gold') : KEYS;
+  const tradeHand = (s, pid) => goldTrades(s) ? Object.assign({}, s.players[pid].resources, { gold: s.players[pid].gold || 0 }) : s.players[pid].resources;
   const hasTrade = (s, pid, need) => tradeKeys(s).every(k => (tradeHand(s, pid)[k] || 0) >= (need[k] || 0));
   const tradeTotal = (s, r) => tradeKeys(s).reduce((a, k) => a + (r[k] || 0), 0);
   function moveTrade(s, from, to, r) {
@@ -919,7 +942,7 @@
     COMM, KEYS, EXPANSIONS, resolveMode, isCK, isPE,
     COST, MODES, PIECES, RES_NAME, DEV_NAME, emptyRes, total, hasRes, resText,
     createGame, apply, viewFor, actor,
-    canSettle, canPlaceRoute, validSettlements, validRoutes, validCities, movableShips, shipTargets,
+    goldTrades, canPirateFrame, canSettle, canPlaceRoute, validSettlements, validRoutes, validCities, movableShips, shipTargets,
     tradeRatios, robberHexes, stealCandidates, publicVP, totalVP, playableDev, longestRouteFor
   });
 })(typeof window !== 'undefined' ? window : globalThis);

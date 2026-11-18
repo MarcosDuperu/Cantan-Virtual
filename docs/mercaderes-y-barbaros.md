@@ -67,8 +67,8 @@ Fuente: reglamento oficial 2015 (Variant Rules & Campaign Scenarios) y su amplia
   caballeros y expulsar bárbaros.
 - Mercaderes y Bárbaros: 3 canteras y 3 vidrierías (nuevos diseños con costa construible), 2 desiertos y un castillo
   nuevo; siguen siendo solo 3 bárbaros; con 2 o 12 **no** se repite la tirada. El jugador 2 puede mejorar y mover
-  su carreta. **Contradicción del reglamento**: el texto dice que el jugador 2 no puede comprar recursos con oro,
-  pero la tabla resumen dice que sí.
+  su carreta. El texto de 2020 decía que el jugador 2 no compra con oro y la tabla que sí;
+  el reglamento 2025 aclara que **sí puede**.
 
 ## Estado en el juego
 
@@ -77,29 +77,38 @@ Señor del puerto, ladrón amistoso y Catan para dos), que también se pueden us
 juegan el Clásico y los escenarios 1 y 2. Motor en `src/js/engine/tb.js`, interfaz en `src/js/ui/tb-ui.js` y pruebas en
 `tools/test-tb.js`.
 
-### Decisiones propias (el reglamento no las da en el texto)
+### Datos de las ilustraciones (transcritos)
 
-- **Tren de equipaje (escenario 5):**
+- **Tableros oficiales** (reglamento 2020 y 5-6): ríos de 4 y 3 hexágonos con sus terrenos impresos y los pantanos en la
+  desembocadura (en 5-6, además el río de la ampliación hacia el este; 7 y 10 sitios de puente), oasis en el centro (en 5-6,
+  dos en la 3.ª y 5.ª fila; flechas a las esquinas noreste, sur y noroeste), Ataque bárbaro con desierto, castillo(s) y fichas
+  fijas, y Mercaderes y Bárbaros con castillo, canteras y vidrierías en su lugar, fichas fijas y los 3 bárbaros en los caminos
+  marcados (en 5-6, isla de 4-5-6-7-6-5-4 hexágonos). Los demás terrenos se reparten al azar, como dice el reglamento.
+- **Puertos** en los lugares fijos del marco (9 en 3-4, 11 en 5-6), con las piezas repartidas al azar; en el escenario 5 para 5-6
+  el marco es distinto y los puertos se reparten por la costa.
+- **Tren de equipaje** (tablero del carro de la 6.ª edición; el nivel 2 coincide con la carta de ejemplo de 2020):
 
-  | Nivel | Movimientos | Oro por entrega | Ahuyenta con | Coste |
+  | Nivel | Movimientos | Oro por entrega | Ahuyenta con | Coste para subir |
   |---|---|---|---|---|
   | 1 | 4 | 1 | — | — |
-  | 2 | 5 | 2 | 6 | madera + cereal |
-  | 3 | 5 | 3 | 5-6 | lana + cereal + mineral |
-  | 4 | 6 | 4 | 5-6 | madera + cereal + 2 mineral |
-  | 5 | 6 | 5 | 4-6 | lana + 2 cereal + 2 mineral (+1 PV) |
+  | 2 | 5 | 2 | 6 | madera + lana + mineral |
+  | 3 | 6 | 3 | 5-6 | madera + lana + mineral |
+  | 4 | 7 | 4 | 4-6 | 2 madera + lana + mineral |
+  | 5 | 7 | 5 | 3-6 | 2 madera + lana + mineral (+1 PV) |
 
-- **Formas de los mapas:** ríos trazados al azar desde la costa hacia el interior, posición de caladeros, castillo y
-  desierto, hexágonos comerciales en esquinas alternas y bárbaros iniciales al azar en caminos.
-- **Fichas de las pilas de mercancías:** mitad y mitad de cada tipo; en 5-6 las pilas de cantera y vidriería son 1,5
-  veces más grandes.
-- **Votación de camellos:** se vota por turnos, pero en secreto: cada uno ve solo su voto hasta que se resuelve.
+### Decisiones de cada jugador
 
-### Simplificaciones
+- **Terremoto**: cada jugador elige cuál de sus carreteras queda dañada (si tiene una sola, se aplica sola).
+- **Intriga** (Ataque bárbaro): eliges de qué hexágono de la costa sacas el bárbaro.
+- **Oro**: en los escenarios con oro se puede ofrecer y pedir oro en el comercio con otros jugadores (lo dice el reglamento 2020).
+- **Catan para dos**: también las carreteras gratis (Construcción de carreteras) dan una carretera a un neutral.
 
-- Terremoto: la carretera dañada se elige sola (un extremo de la red).
-- Intriga: el hexágono se elige solo (el que más amenaza tus edificios).
-- Fusión de caravanas: la otra caravana termina.
-- Los neutrales construyen la misma pieza que tú; no se construye para ellos con las carreteras gratis.
-- El oro no se ofrece en el comercio entre jugadores.
-- En 5-6, el jugador 2 no puede comprar con oro en el escenario 5 (el texto lo dice; la tabla resumen dice lo contrario).
+- **Caladeros** (Pescadores): en 3-4, los 6 en los lugares de la ilustración (6, 8, 9, 5, 4 y 10 en sentido horario desde
+  arriba); en 5-6 (sin ilustración), uno en cada espacio de la costa sin puerto, repartidos por el marco. El lago va al azar en el interior.
+- **Pilas de mercancías**: 12 fichas por pila, 6 de cada mercancía (lista de componentes); la ampliación 5-6 suma 6 a cada pila.
+
+### Revisado con el reglamento
+
+- **Votación de camellos**: la puja es pública, por turnos, y las cartas quedan boca arriba (cada uno ve los votos anteriores).
+- **Fusión de caravanas**: dos caravanas que se encuentran en un cruce siguen como una sola (texto del reglamento).
+- En 5-6, el jugador 2 también puede comprar con oro en el escenario 5 (lo aclara el reglamento 2025; el de 2020 se contradecía).

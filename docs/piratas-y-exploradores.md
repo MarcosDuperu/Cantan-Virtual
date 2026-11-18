@@ -112,9 +112,11 @@ mapas en `src/js/engine/board.js`, pruebas en `tools/test-pe.js`.
 - **5-6 jugadores en pareja**: el jugador 1 tira, comercia con todos, construye y mueve barcos; después el jugador 2
   (el tercero a su izquierda) solo comercia con el banco, construye y mueve sus barcos (y puede ganar); luego pasa el turno.
   Banco de 24, 8 guaridas, 8 cargas de pescado y fichas extra (verde 2, 5, 9; naranja 3, 4, 10).
-- **Propio** (el reglamento no lo muestra): los valores de las fichas de las zonas sin explorar y de las fichas de guarida
-  (en las ilustraciones están boca abajo; los de la ampliación 5-6 sí son los oficiales), que las guaridas y especias queden junto
-  al agua al repartir las zonas, y el escenario 1 para 5-6 (tablero del 2 con mar en lugar de guaridas; el reglamento recomienda no jugarlo).
+- **Fichas de las zonas** (lista de componentes de la 6.ª edición, que coincide con las planchas troqueladas de 2020): norte 3, 4, 5,
+  6, 9 y 10; sur 4, 5, 8, 9, 10 y 11 (más las de la ampliación 5-6: norte 2, 5, 9; sur 3, 4, 10). Bancos de pesca: 1-3 en el norte
+  y 4-6 en el sur. Las losetas de cada zona se barajan al azar, como en el reglamento.
+- **Propio**: los valores de 5 de las 6 fichas de guarida (el reglamento solo muestra el 5, en el ejemplo 12; las de la ampliación
+  5-6 son 9 y 10) y el escenario 1 para 5-6 (tablero del 2 con mar en lugar de guaridas; el reglamento recomienda no jugarlo).
 - **Revisado con el reglamento 2020**: la captura de una guarida se resuelve al terminar la fase de movimiento; el dado de pesca
   es opcional (una vez por turno, durante tu fase de movimiento; no en la parte del jugador 2); el tributo pirata se paga
   a la reserva (como dice el reglamento); el oro se comercia entre jugadores como una carta más; con los 3 barcos en el

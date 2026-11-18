@@ -74,7 +74,7 @@
     },
     '4-56': {
       cols: [[4, 'p6 s p8 w2 s g4 s w9'], [3, 'h9 m11 s s s s s p11 f3'], [2, 'p12 w3 h12 m6 h11 m3 w9 s s m8'], [1, 's m4 f5 w10 h5 p10 f4 h8 s s s'], [2, 's s s w2 f8 p9 f10 s s g10'], [3, 'f5 p2 d d d d d s s'], [4, 'g4 m6 h11 s f12 w5 m3 h6']],
-      harbors: [[1, 3, 'n'], [0, 4, 'nw'], [3, 3, 'ne'], [1, 5, 'sw'], [2, 6, 'sw'], [3, 7, 'ne'], [2, 10, 'nw'], [2, 14, 'nw'], [3, 15, 'sw'], [4, 14, 's']], set: 11, robber: [5, 11], pirate: [0, 16]
+      harbors: [[1, 3, 'n'], [0, 4, 'nw'], [3, 3, 'ne'], [1, 5, 'sw'], [2, 6, 'sw'], [3, 7, 'ne'], [2, 10, 'nw'], [2, 14, 'nw'], [3, 15, 'sw'], [4, 14, 's'], [2, 1, 'se']], set: 11, robber: [5, 11], pirate: [0, 16]
     },
     '5-34': {
       cols: [[3, 'd h s h d g'], [2, 's s s s s s s'], [1, 'f11 w9 m3 p8 h10 w3 s f'], [2, 'p10 h8 p4 w12 f5 p2 s'], [1, 'w6 f9 m11 h5 f6 m4 s p'], [2, 's s s s s s s'], [3, 'g m s d m w']],
@@ -98,7 +98,7 @@
     '6-56': {
       cols: [[4, 'p10 f6 m5 f11 f8 w10 h6'], [3, 'h9 w2 s s s s p11 m4'], [2, 'm8 s s D s D s s m2'], [1, 's s G s s s s G s s'], [2, 'w11 s s D s D s s p3'], [3, 'w3 f12 s s s s f3 m9'], [4, 'f4 p6 h5 w12 h3 p11 w8']],
       villages: [[2, 8, 'w', 12], [2, 8, 'e', 6], [2, 12, 'w', 10], [2, 12, 'e', 9], [3, 5, 'w', 9], [3, 5, 'e', 4], [3, 15, 'w', 5], [3, 15, 'e', 4], [4, 8, 'w', 5], [4, 8, 'e', 2], [4, 12, 'w', 8], [4, 12, 'e', 10]],
-      harbors: [[1, 3, 'n'], [5, 3, 'n'], [0, 6, 'nw'], [6, 4, 'se'], [0, 8, 'sw'], [6, 10, 'ne'], [6, 14, 'ne'], [0, 14, 'sw'], [6, 16, 'se'], [1, 17, 'sw'], [2, 18, 's'], [5, 17, 's']], set: 11, robber: [4, 2], pirate: [3, 19]
+      harbors: [[1, 3, 'n'], [5, 3, 'n'], [0, 6, 'nw'], [6, 4, 'se'], [0, 8, 'sw'], [6, 10, 'ne'], [6, 14, 'ne'], [0, 14, 'sw'], [1, 17, 'sw'], [2, 18, 's'], [5, 17, 's']], set: 11, robber: [4, 2], pirate: [3, 19]
     },
     '7-34': {
       cols: [[3, 'g3 m6 s s w10 h4'], [2, 'h s s p s m5 f2'], [1, 'w10 s s d s p11 f8 p9'], [2, 's m8 s s w6 h9 p12'], [1, 'w4 s s d s f3 p8 f5'], [2, 'h s s d s m9 f10'], [3, 'g11 m6 s s w4 h5']],
@@ -851,7 +851,7 @@
   const WONDERS = {
     cathedral: { name: 'Catedral', cost: { brick: 1, wheat: 1, ore: 3 }, req: '1 ciudad y al menos 6 PV' },
     bridge: { name: 'Gran Puente', cost: { wood: 3, wheat: 1, sheep: 1 }, req: 'Un poblado en el estrecho (cruce violeta)' },
-    wall: { name: 'Gran Muralla', cost: { wood: 1, brick: 3, wheat: 1 }, req: 'Dos poblados en el páramo (cruces marrones)' },
+    wall: { name: 'Gran Muralla', cost: { wood: 1, brick: 3, wheat: 1 }, req: 'Dos poblados en el páramo (cruces marrones); con las reglas 2025, un edificio' },
     monument: { name: 'Monumento', cost: { wheat: 3, ore: 2 }, req: 'Una ciudad en un puerto y una ruta de 5 carreteras o barcos seguidos sin ramificar' },
     theater: { name: 'Teatro', cost: { wood: 1, brick: 1, sheep: 3 }, req: '2 ciudades' }
   };
@@ -887,7 +887,8 @@
     switch (kind) {
       case 'cathedral': return cities.length >= 1 && C.totalVP(s, pid) >= 6;
       case 'bridge': return mine.some(v => s.sf.purple.includes(v));
-      case 'wall': return mine.filter(v => s.sf.brown.includes(v)).length >= 2;
+      // la carta de 2020 pide dos poblados en el páramo; la de 2025, un edificio en uno de sus cruces
+      case 'wall': return mine.filter(v => s.sf.brown.includes(v)).length >= (s.rules2025 ? 1 : 2);
       case 'monument': return cities.some(v => s.board.vertices[v].port) && straightRoute(s, pid) >= 5;
       case 'theater': return cities.length >= 2;
     }

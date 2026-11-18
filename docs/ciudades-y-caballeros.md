@@ -65,8 +65,11 @@ Decisiones del reglamento que toma cada jugador (antes las tomaba el juego):
 - **Empate de defensores**: cada empatado elige de qué mazo roba.
 - **Ciudad saqueada**: quien la pierde elige cuál, y la producción espera a que decida.
 
+También se aplican: sin una ciudad libre para la metrópolis no se compran los niveles 4 y 5 (salvo que ya tengas la de
+ese color), y una ciudad saqueada sin poblados de reserva queda tumbada como poblado y es la primera que se vuelve a mejorar.
+
 Si solo hay una opción, el juego la aplica sin preguntar. Los bots eligen solos (el caballero más débil, su ciudad de menor
 producción, el mazo de su mejora más alta…).
 
-Interpretación propia: **quinta carta de progreso**. El reglamento solo dice "nunca más de 4"; el juego obliga a
-descartar fuera de tu turno y te deja jugarla en tu turno antes de terminarlo (interpretación de ediciones anteriores).
+**Quinta carta de progreso**: fuera de tu turno descartas hasta 4; en tu turno puedes jugarla o descartarla antes de terminarlo
+(la 6.ª edición lo dice así de forma explícita).

@@ -185,6 +185,7 @@
       ${hasVariants(mode) ? `<label class="opt check"><input type="checkbox" id="op-events" ${o.events ? 'checked' : ''}><span>Cartas de evento <small>(sustituyen a los dados)</small></span></label>
       <label class="opt check"><input type="checkbox" id="op-harbor" ${o.harbormaster ? 'checked' : ''}><span>Señor del puerto <small>(+2 PV; se gana con 1 PV más)</small></span></label>` : ''}
       ${(mode === 'classic' || mode === 'cities') && (count === undefined || count >= 5) ? `<label class="opt check"><input type="checkbox" id="op-special" ${o.specialBuild ? 'checked' : ''}><span>Fase de construcción especial <small>(5-6: regla anterior a 2022, en vez de jugadores en pareja)</small></span></label>` : ''}
+      ${mode === 'seafarers' || mode === 'explorers' ? `<label class="opt check"><input type="checkbox" id="op-2025" ${o.rules2025 ? 'checked' : ''}><span>Reglas 2025 <small>(6.ª edición: ${mode === 'seafarers' ? 'el pirata puede ir al marco; la Gran Muralla pide un edificio' : 'puedes devolver una pieza para hacer sitio a un colono o tripulación'})</small></span></label>` : ''}
       ${mode === 'classic' && count === 2 ? '<div class="opt-note muted small">Con 2 jugadores se juega «Catan para dos»: dos jugadores neutrales, doble tirada y fichas de comercio.</div>' : ''}
       <label class="opt"><span>Velocidad de la máquina</span><select id="op-speed">
         <option value="slow" ${o.speed === 'slow' ? 'selected' : ''}>Lenta</option><option value="normal" ${!o.speed || o.speed === 'normal' ? 'selected' : ''}>Normal</option>
@@ -199,13 +200,14 @@
       events: ck('#op-events'),
       harbormaster: ck('#op-harbor'),
       specialBuild: ck('#op-special'),
+      rules2025: ck('#op-2025'),
       scenario: sc ? +sc.value : undefined,
       speed: el.querySelector('#op-speed').value
     };
   }
   // Opciones que viajan a la partida (sin la velocidad)
   function gameOptions(o) {
-    return { vpTarget: o.vpTarget, friendlyRobber: o.friendlyRobber, scenario: o.scenario, events: o.events, harbormaster: o.harbormaster, specialBuild: o.specialBuild };
+    return { vpTarget: o.vpTarget, friendlyRobber: o.friendlyRobber, scenario: o.scenario, events: o.events, harbormaster: o.harbormaster, specialBuild: o.specialBuild, rules2025: o.rules2025 };
   }
   // Al cambiar de escenario se actualizan los PV por defecto
   function bindScenario(el, getMode) {
@@ -354,6 +356,7 @@
       const session = new C.LanHostSession(profile, router);
       router.session = session;
       lobby.session = session;
+      C._debug = session;
       try { await session.open(); } catch (err) { showLan(); alertBox('No se pudo crear la partida', err.message); }
     });
   }
@@ -364,6 +367,7 @@
     const session = new C.RemoteSession(profile, addr, router);
     router.session = session;
     lobby.session = session;
+    C._debug = session;
     try { await session.open(); } catch (err) { showLan(); alertBox('No se pudo conectar', err.message); }
   }
 
@@ -437,7 +441,7 @@
       } else {
         const set = scenarioSet(l.mode), lo = l.options || {};
         const scn = set && set.list[lo.scenario];
-        el.querySelector('#lb-mode').innerHTML = `<b>${esc(M.name)}</b>${scn && scn.id ? ' · ' + esc(scn.name) : ''} · ${M.min}-${M.max} jugadores · ${lo.vpTarget || (scn ? scn.vp : M.vp)} PV${lo.friendlyRobber ? ' · ladrón amistoso' : ''}${lo.events ? ' · cartas de evento' : ''}${lo.harbormaster ? ' · Señor del puerto' : ''}${lo.specialBuild ? ' · construcción especial (5-6)' : ''}`;
+        el.querySelector('#lb-mode').innerHTML = `<b>${esc(M.name)}</b>${scn && scn.id ? ' · ' + esc(scn.name) : ''} · ${M.min}-${M.max} jugadores · ${lo.vpTarget || (scn ? scn.vp : M.vp)} PV${lo.friendlyRobber ? ' · ladrón amistoso' : ''}${lo.events ? ' · cartas de evento' : ''}${lo.harbormaster ? ' · Señor del puerto' : ''}${lo.specialBuild ? ' · construcción especial (5-6)' : ''}${lo.rules2025 ? ' · reglas 2025' : ''}`;
         const mine = l.seats.find(s => s.cid === h.session.cid);
         el.querySelector('#my-color').innerHTML = C.COLORS.map(c => {
           const taken = l.seats.some(s => s.color === c.id && s !== mine);

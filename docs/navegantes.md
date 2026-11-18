@@ -56,10 +56,18 @@ Implementado: los **9 escenarios** para 3-4 jugadores y la **ampliación 5-6** c
   empezando por el primer jugador y siguiendo a la izquierda, cada uno toma el puerto de arriba de la pila y lo coloca en un lado
   entre tierra y mar (la máquina elige el lado donde más rinde).
 
+### Revisión con los reglamentos 2021 y 2025
+
+Coinciden con el texto del reglamento: el punto por el primer poblado en cada isla pequeña de «Las maravillas», el Monumento
+(ruta de 5 carreteras o barcos seguidos sin ramificar), empezar una maravilla poniendo un barco sobre la carta, la franja tras el
+desierto como zona propia en «A través del desierto», robar tela con el pirata en «Tela para Catan» y la carta de desarrollo
+regalada que se guarda como comprada en «La tribu olvidada». La Gran Muralla pide dos poblados (2020) o un edificio (opción
+«Reglas 2025»). Lo que sigue son interpretaciones donde el texto no llega.
+
 ### Decisiones propias (datos que el reglamento solo muestra en dibujos o deja al jugador)
 
-- **Puertos**: los tipos se barajan en las posiciones del dibujo (regla general del reglamento). En el escenario 4 para 5-6 el dibujo
-  muestra 10 posiciones para 11 fichas: se usan 10. En «Tela para Catan» 5-6 hay 12 posiciones para 11 fichas: la que sobra es 3:1.
+- **Puertos**: los tipos se barajan en las posiciones del dibujo (regla general del reglamento). En 5-6, «A través del desierto» y
+  «Tela para Catan» usan los 11 lugares del mapa de 2025 (el dibujo de 2023 tenía 10 y 12).
   En «Nuevo mundo» y con los puertos regalados, un puerto no puede tocar un cruce que ya tenga puerto.
 - **Islas y zonas**: la bonificación cuenta islas (componentes de tierra). En «A través del desierto» el desierto no pertenece a
   ninguna zona, así que la franja tras él es una zona ajena aunque esté unida a la isla principal por el desierto.

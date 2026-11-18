@@ -231,26 +231,30 @@
     return ps.filter((p, i) => vals[i] === max).map(p => p.id);
   }
   function knightsOnBoard(s, pid) { return s.tb.knights ? Object.values(s.tb.knights).filter(k => k.owner === pid).length : 0; }
+  // Terremoto: cada jugador daña una de sus carreteras (la elige él; si solo tiene una, se aplica sola)
+  const damageable = (s, pid) => s.players[pid].damaged !== null ? [] :
+    Object.keys(s.roads).map(Number).filter(e => s.roads[e].owner === pid && s.roads[e].type === 'road' && !s.roads[e].bridge);
+  function damageRoad(s, pid, e) {
+    s.players[pid].damaged = e;
+    s.roads[e].damaged = true;
+    R().log(s, name(s, pid) + ' gira una carretera dañada por el terremoto.', pid);
+  }
   function earthquake(s) {
+    R().log(s, 'Terremoto: cada jugador daña una de sus carreteras.');
+    const who = [];
     real(s).forEach(P => {
-      if (P.damaged !== null) return;
-      const own = Object.keys(s.roads).map(Number).filter(e => s.roads[e].owner === P.id && s.roads[e].type === 'road' && !s.roads[e].bridge);
-      if (!own.length) return;
-      // se gira la carretera que menos estorba: preferentemente una del extremo
-      const open = own.filter(e => s.board.edges[e].v.some(v => !(s.buildings[v] && s.buildings[v].owner === P.id) &&
-        !s.board.vertices[v].edges.some(o => o !== e && s.roads[o] && s.roads[o].owner === P.id)));
-      const e = (open.length ? open : own)[0];
-      P.damaged = e;
-      s.roads[e].damaged = true;
+      const own = damageable(s, P.id);
+      if (own.length === 1) damageRoad(s, P.id, own[0]);
+      else if (own.length > 1) who.push(P.id);
     });
-    R().log(s, 'Terremoto: cada jugador tiene una carretera dañada.');
+    return who;
   }
   // Aplica el evento antes de producir; devuelve las interacciones pendientes para después
   function applyEvent(s, ev, pid) {
     const post = [];
     switch (ev.type) {
       case 'epidemic': s.tb.epidemic = true; break;
-      case 'earthquake': earthquake(s); break;
+      case 'earthquake': { const who = earthquake(s); if (who.length) post.push({ kind: 'damage', who }); break; }
       case 'robberFlees':
         if (sc(s) === 4 || sc(s) === 5) break;
         if (sc(s) === 1 || sc(s) === 3) s.robber = null;
@@ -379,6 +383,12 @@
         s.tb.pending = { kind: 'give', pairs: p.pairs };
         s.phase = 'tbGive';
         return;
+      } else if (p.kind === 'damage') {
+        const who = p.who.filter(x => damageable(s, x).length);
+        if (!who.length) continue;
+        s.tb.pending = { kind: 'damage', who };
+        s.phase = 'tbDamage';
+        return;
       }
     }
     s.tb.postQueue = null;
@@ -429,7 +439,7 @@
     const P = s.players[pid];
     if (what === 'road') {
       if (sc(s) === 2 && s.board.edges[at].hexes.some(h => riverHex(s, h))) addGold(s, pid, 1, 'carretera junto al río');
-      if (s.tb.two && !P.neutral && !free && s.phase !== 'tbNeutral') startNeutral(s, 'road');
+      if (s.tb.two && !P.neutral && s.phase !== 'tbNeutral') startNeutral(s, 'road'); // también con las carreteras gratis
     } else if (what === 'settlement') {
       afterSettlementCommon(s, pid, at, false);
       if (sc(s) === 4) barbarianLanding(s, pid);
@@ -748,13 +758,14 @@
   const TR_DECK = { knight: 15, roadBuilding: 3, swiftJourney: 3, vp: 3 };
   const TR_DECK_BIG = { knight: 21, roadBuilding: 6, swiftJourney: 6, vp: 3 };
   const TR_VP = ['toolmaking', 'glassmaking', 'quarry'];
+  // Tren de equipaje: tablero del carro de la 6.ª edición (su nivel 2 coincide con la carta de ejemplo del reglamento 2020)
   const TRAIN = [
     null,
     { mp: 4, gold: 1, drive: [], cost: null },
-    { mp: 5, gold: 2, drive: [6], cost: { wood: 1, wheat: 1 } },
-    { mp: 5, gold: 3, drive: [5, 6], cost: { sheep: 1, wheat: 1, ore: 1 } },
-    { mp: 6, gold: 4, drive: [5, 6], cost: { wood: 1, wheat: 1, ore: 2 } },
-    { mp: 6, gold: 5, drive: [4, 5, 6], cost: { sheep: 1, wheat: 2, ore: 2 } }
+    { mp: 5, gold: 2, drive: [6], cost: { wood: 1, sheep: 1, ore: 1 } },
+    { mp: 6, gold: 3, drive: [5, 6], cost: { wood: 1, sheep: 1, ore: 1 } },
+    { mp: 7, gold: 4, drive: [4, 5, 6], cost: { wood: 2, sheep: 1, ore: 1 } },
+    { mp: 7, gold: 5, drive: [3, 4, 5, 6], cost: { wood: 2, sheep: 1, ore: 1 } }
   ];
   const GOOD_NAME = { glass: 'vidrio', marble: 'mármol', sand: 'arena', tools: 'herramientas' };
   const GOOD_DEST = { glass: 'castle', marble: 'castle', tools: 'quarry', sand: 'glassworks' };
@@ -767,9 +778,10 @@
     s.tb.vpDealt = 0;
     const mk = (a, b, n) => shuffle(Array.from({ length: n }, (_, i) => (i % 2 ? a : b)));
     const m = big(s) ? 1.5 : 1;
-    s.tb.stacks = { castle: mk('tools', 'sand', 12), quarry: mk('marble', 'sand', Math.round(12 * m)), glassworks: mk('glass', 'tools', Math.round(12 * m)) };
-    // 3 bárbaros en caminos repartidos por la isla
-    const cand = shuffle(s.board.edges.filter(e => e.land && e.interior === undefined && e.hexes.length === 2 && e.hexes.every(h => C.isLand(s.board.hexes[h].terrain))).map(e => e.id));
+    // 12 fichas por pila (6 de cada mercancía); la ampliación 5-6 suma 6 a cada pila
+    s.tb.stacks = { castle: mk('tools', 'sand', 12 * m), quarry: mk('marble', 'sand', 12 * m), glassworks: mk('glass', 'tools', 12 * m) };
+    // 3 bárbaros en los caminos marcados del reglamento (3-4) o repartidos por la isla
+    const cand = s.board.barbStart ? s.board.barbStart.slice() : shuffle(s.board.edges.filter(e => e.land && e.interior === undefined && e.hexes.length === 2 && e.hexes.every(h => C.isLand(s.board.hexes[h].terrain))).map(e => e.id));
     s.tb.barbs = [];
     for (const e of cand) {
       if (s.tb.barbs.length >= 3) break;
@@ -926,6 +938,16 @@
       if (!pend.pairs.length) nextPost(s);
       return ok();
     }
+    if (s.phase === 'tbDamage') {
+      if (t !== 'damageRoad') return err('Esperando que cada jugador elija su carretera dañada');
+      const pend = s.tb.pending;
+      if (!pend.who.includes(pid)) return err('No tienes que dañar ninguna carretera');
+      if (!damageable(s, pid).includes(a.edge)) return err('Elige una de tus carreteras');
+      damageRoad(s, pid, a.edge);
+      pend.who = pend.who.filter(x => x !== pid);
+      if (!pend.who.length) nextPost(s);
+      return ok();
+    }
     if (s.phase === 'tbVote') {
       const V = s.tb.vote;
       if (t !== 'vote') return err('Votación en curso');
@@ -935,7 +957,9 @@
       const opts = camelOptions(s);
       V.bids[pid] = bid;
       V.prefs[pid] = opts[a.option] ? a.option | 0 : 0;
-      R().log(s, name(s, pid) + ' vota en secreto.', pid);
+      // las cartas de la puja se ponen boca arriba (reglamento): todos ven cuánto ofrece cada uno
+      const nb = bid.sheep + bid.wheat;
+      R().log(s, name(s, pid) + (nb ? ' ofrece ' + C.resText(bid) + ' por el camino ' + (V.prefs[pid] + 1) + '.' : ' no ofrece cartas.'), pid);
       V.idx++;
       if (V.idx >= V.order.length) {
         const cont = V.cont;
@@ -946,7 +970,7 @@
       return ok();
     }
     if (pid !== s.current) {
-      if (['tbSteal', 'tbNeutral', 'tbKnight', 'tbTreason', 'tbBarbarian', 'tbMove'].includes(s.phase)) return err('No es tu turno');
+      if (['tbSteal', 'tbNeutral', 'tbKnight', 'tbTreason', 'tbIntrigue', 'tbBarbarian', 'tbMove'].includes(s.phase)) return err('No es tu turno');
       if (s.tb.p2 && (t === 'respondTrade')) return err('El jugador 2 solo comercia con el banco');
       return null;
     }
@@ -995,6 +1019,14 @@
       R().event(s, { type: 'knightPlace', pid, edge: a.edge });
       s.phase = 'main';
       s.tb.knightPlace = null;
+      return ok();
+    }
+    if (s.phase === 'tbIntrigue') {
+      if (t !== 'intrigue') return err('Elige el hexágono del que sacas un bárbaro');
+      if (!intrigueHexes(s).includes(a.hex)) return err('Elige un hexágono de la costa con bárbaros');
+      takePrisoner(s, pid, a.hex);
+      s.phase = 'main';
+      R().checkWin(s, pid);
       return ok();
     }
     if (s.phase === 'tbTreason') {
@@ -1183,7 +1215,6 @@
     if (!usesGold(s)) return err('En este escenario no hay oro');
     if (a.give === 'gold') {
       if (!RES.includes(a.get)) return err('Comercio inválido');
-      if (s.tb.p2 && sc(s) === 5) return err('El jugador 2 no puede comprar con oro en este escenario');
       if (s.tb.goldBuys >= 2) return err('Solo puedes comprar con oro 2 veces por turno');
       if (P.gold < 2) return err('Necesitas 2 de oro');
       if (s.bank[a.get] < 1) return err('El banco no tiene ese recurso');
@@ -1318,18 +1349,20 @@
       P.gold += 2;
       s.phase = 'tbTreason';
     } else if (card === 'intrigue') {
-      const hs = s.board.hexes.filter(h => h.coastal && h.barbs);
-      if (hs.length) {
-        // se elige el hexágono que más amenaza tus edificios (y si no, el que más bárbaros tiene)
-        const mine = h => h.vertices.some(v => s.buildings[v] && s.buildings[v].owner === pid) ? 10 : 0;
-        const h = hs.sort((x, y) => (mine(y) + y.barbs) - (mine(x) + x.barbs))[0];
-        removeBarbarian(s, h, false);
-        P.prisoners++;
-        R().log(s, name(s, pid) + ' hace prisionero a un bárbaro.', pid);
-      }
+      // eliges de qué hexágono de la costa sacas un bárbaro (si hay uno solo, se aplica directo)
+      const hs = intrigueHexes(s);
+      if (hs.length === 1) takePrisoner(s, pid, hs[0]);
+      else if (hs.length > 1) s.phase = 'tbIntrigue';
     }
     R().checkWin(s, pid);
     return ok();
+  }
+
+  const intrigueHexes = s => s.board.hexes.filter(h => h.coastal && h.barbs).map(h => h.id);
+  function takePrisoner(s, pid, hid) {
+    removeBarbarian(s, s.board.hexes[hid], false);
+    s.players[pid].prisoners++;
+    R().log(s, name(s, pid) + ' hace prisionero a un bárbaro.', pid);
   }
 
   // ----- cartas del escenario 5 -----
@@ -1388,16 +1421,12 @@
     if (v.tb.stacks) Object.keys(v.tb.stacks).forEach(k => { v.tb.stacks[k] = s.tb.stacks[k].length; });
     delete v.tb.devDiscard;
     delete v.tb.postQueue;
-    // los votos son secretos hasta que se resuelve la votación
-    if (s.tb.vote) {
-      v.tb.vote.bids = s.tb.vote.bids[pid] ? { [pid]: Object.assign({}, s.tb.vote.bids[pid]) } : {};
-      v.tb.vote.prefs = s.tb.vote.prefs[pid] !== undefined ? { [pid]: s.tb.vote.prefs[pid] } : {};
-    }
   }
 
   // quién debe actuar en las fases de varios jugadores (para la máquina)
   function waiting(s) {
     if (s.phase === 'tbGive') return s.tb.pending.pairs.map(x => x.from);
+    if (s.phase === 'tbDamage') return s.tb.pending.who.slice();
     if (s.phase === 'tbVote') return [s.tb.vote.order[s.tb.vote.idx]];
     return null;
   }
@@ -1412,6 +1441,6 @@
     init, handle, roll, target, nextPost, extraVP, edgeWeight, settleOk, roadOk, robberHexes, afterProduce, afterBuild, afterSetupSettlement,
     afterSetupRoad, afterSetup, onTurnStart, endTurn, redact, waiting, actor,
     harborPoints, coinRanks, camelOptions, camelBonus, castleEdges, knightTargets, knightSpots, wagonReach, wagonEdgeCost, barbFreeEdges,
-    bridgeSpots, neutralOptions, stealVictims, giveTargets, fishCost, usesGold, hasMove, real, knightsOnBoard, edgeClass
+    bridgeSpots, neutralOptions, damageable, intrigueHexes, stealVictims, giveTargets, fishCost, usesGold, hasMove, real, knightsOnBoard, edgeClass
   };
 })(typeof window !== 'undefined' ? window : globalThis);

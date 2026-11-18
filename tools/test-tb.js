@@ -86,9 +86,14 @@ function clearBoard(s) {
   const p = t.current;
   t.tb.eventDeck.push(['earthquake', quietNumber(t) || 3]);
   C.apply(t, p, { type: 'roll' });
+  // cada jugador elige qué carretera se daña (con 2 carreteras iniciales hay que elegir)
+  check(t.phase === 'tbDamage' && t.tb.pending.who.length === 3 && t.tb.pending.who.includes(C.actor(t)), 'Terremoto: cada jugador elige su carretera dañada');
+  const q = t.tb.pending.who.find(x => x !== p);
+  check(!!C.apply(t, q, { type: 'damageRoad', edge: Object.keys(t.roads).map(Number).find(e => t.roads[e].owner !== q) }).error, 'Terremoto: solo se elige una carretera propia');
+  for (let i = 0; i < 5 && t.phase === 'tbDamage'; i++) { const w = t.tb.pending.who[0]; C.apply(t, w, C.AI.decide(t, w, {})); }
   if (t.phase !== 'main') t.phase = 'main';
   const P = t.players[p];
-  check(P.damaged !== null && t.roads[P.damaged].damaged, 'Terremoto: cada jugador tiene una carretera dañada');
+  check(t.players.every(x => x.damaged !== null && t.roads[x.damaged].damaged && t.roads[x.damaged].owner === x.id), 'Terremoto: cada jugador tiene una carretera dañada');
   give(P, { wood: 3, brick: 3 });
   const e = C.validRoutes(t, p, 'road')[0];
   check(!!C.apply(t, p, { type: 'buildRoad', edge: e }).error, 'con una carretera dañada no se pueden construir carreteras');
@@ -311,7 +316,7 @@ function clearBoard(s) {
   C.apply(t, order[0], { type: 'vote', option: 0, sheep: 0, wheat: 0 });
   C.apply(t, voter, { type: 'vote', option: 1, sheep: 3, wheat: 0 });
   const vw2 = C.viewFor(t, order[2]);
-  check(!vw2.tb.vote.bids[voter], 'los votos de los demás son secretos');
+  check(vw2.tb.vote.bids[voter] && vw2.tb.vote.bids[voter].sheep === 3, 'la puja se hace boca arriba: todos ven los votos anteriores');
   C.apply(t, order[2], { type: 'vote', option: 0, sheep: 0, wheat: 0 });
   check(t.tb.camels[opts[1].edge] !== undefined, 'gana la opción con mayoría absoluta');
   check(t.players[voter].resources.sheep === s0 - 3, 'los votos se pagan');
@@ -394,6 +399,13 @@ function clearBoard(s) {
   t2.phase = 'main';
   const pr0 = Q.prisoners;
   C.apply(t2, q, { type: 'buyDev' });
+  const ih = TB.intrigueHexes(t2);
+  if (t2.phase === 'tbIntrigue') {
+    check(ih.length > 1 && !!C.apply(t2, q, { type: 'intrigue', hex: -1 }).error, 'Intriga: eliges entre los hexágonos de la costa con bárbaros');
+    const pick = ih[ih.length - 1], b0 = t2.board.hexes[pick].barbs;
+    C.apply(t2, q, { type: 'intrigue', hex: pick });
+    check(t2.board.hexes[pick].barbs === b0 - 1 && t2.phase === 'main', 'Intriga: sale un bárbaro del hexágono elegido');
+  }
   check(Q.prisoners === pr0 + 1, 'Intriga: un bárbaro pasa a ser tu prisionero');
   // Traición
   t2.devDeck.push('treason');
@@ -473,10 +485,10 @@ function clearBoard(s) {
   // tren de equipaje
   t.phase = 'main';
   W.level = 1;
-  give(P, { wood: 1, wheat: 1 });
-  check(!C.apply(t, p, { type: 'upgradeWagon' }).error && W.level === 2, 'mejorar el tren al nivel 2 (madera + cereal)');
+  give(P, { wood: 1, sheep: 1, ore: 1 });
+  check(!C.apply(t, p, { type: 'upgradeWagon' }).error && W.level === 2 && TB.TRAIN[2].mp === 5 && TB.TRAIN[5].mp === 7, 'mejorar el tren al nivel 2 (madera + lana + mineral)');
   W.level = 4;
-  give(P, { sheep: 1, wheat: 2, ore: 2 });
+  give(P, { wood: 2, sheep: 1, ore: 1 });
   const vp1 = C.totalVP(t, p);
   C.apply(t, p, { type: 'upgradeWagon' });
   check(W.level === 5 && C.totalVP(t, p) === vp1 + 1, 'el nivel 5 del tren vale 1 PV');
@@ -538,7 +550,7 @@ function clearBoard(s) {
   toMain(t5);
   C.apply(t5, pp, { type: 'endTurn' });
   t5.players[t5.current].gold = 4;
-  check(!!C.apply(t5, t5.current, { type: 'bankTrade', give: 'gold', get: 'ore' }).error, 'en el escenario 5 el jugador 2 no compra con oro');
+  check(!C.apply(t5, t5.current, { type: 'bankTrade', give: 'gold', get: 'ore' }).error, 'en el escenario 5 el jugador 2 también compra con oro (reglamento 2025)');
 }
 
 // ================= partidas completas entre bots =================
@@ -565,6 +577,96 @@ for (const [mode, sc, n, extra] of [['traders', 1, 3], ['traders', 2, 4], ['trad
   ['traders', 1, 2, { events: true }], ['classic', 0, 2, { harbormaster: true }], ['classic', 0, 4, { events: true, harbormaster: true }], ['extended', 0, 5, { events: true }]]) {
   const r = botGames(mode, Object.assign({ scenario: sc }, extra || {}), n, 2);
   check(r.ok === 2 && !r.errs, `${mode} esc. ${sc}, ${n} jugadores${extra ? ' (' + Object.keys(extra).join(', ') + ')' : ''}: 2 partidas entre bots sin errores`);
+}
+
+// ================= oro en el comercio y neutrales con carreteras gratis =================
+{
+  // en los escenarios con oro se puede ofrecer y pedir oro a otros jugadores
+  const t = game('traders', { scenario: 2 }, 3);
+  toMain(t);
+  const p = t.current, q = (p + 1) % 3, P = t.players[p], Q = t.players[q];
+  empty(P); empty(Q); P.gold = 4; Q.gold = 0; give(Q, { ore: 1 });
+  check(!C.apply(t, p, { type: 'offerTrade', give: { gold: 2 }, get: { ore: 1 }, to: q }).error, 'Ríos: se puede ofrecer oro a otro jugador');
+  C.apply(t, q, { type: 'respondTrade', id: t.trade.id, accept: true });
+  check(!C.apply(t, p, { type: 'confirmTrade', with: q }).error && P.gold === 2 && Q.gold === 2 && P.resources.ore === 1, 'Ríos: el oro cambia de mano');
+  const t1 = game('traders', { scenario: 1 }, 3);
+  toMain(t1);
+  const p1 = t1.current; t1.players[p1].gold = 3;
+  check(!!C.apply(t1, p1, { type: 'offerTrade', give: { gold: 1 }, get: { ore: 1 } }).error, 'sin oro en el escenario no se ofrece oro');
+}
+{
+  // Catan para dos: también con las carreteras gratis se construye para un neutral
+  const t = game('classic', {}, 2);
+  toMain(t);
+  const p = t.current, P = t.players[p];
+  P.devCards.push({ type: 'roadBuilding', turn: -1 });
+  C.apply(t, p, { type: 'playDev', card: 'roadBuilding' });
+  C.apply(t, p, { type: 'buildRoad', edge: C.validRoutes(t, p, 'road')[0] });
+  check(t.phase === 'tbNeutral' && t.tb.neutralBuild.ret === 'roadBuilding', 'Catan para dos: la carretera gratis también da una al neutral');
+  const o = TB.neutralOptions(t, t.tb.neutralBuild.kind)[0];
+  C.apply(t, p, { type: 'neutralBuild', pid: o.pid, at: o.at });
+  check(t.phase === 'roadBuilding' && t.freeRoads === 1, 'Catan para dos: después sigue la segunda carretera gratis');
+}
+
+// ================= tableros oficiales 3-4 =================
+{
+  const R = [0, 3, 7, 12, 16];
+  const hexAt = (b, r, c) => b.hexes[R[r] + c];
+  // Ríos
+  const b2 = C.generateBoard('traders', { scenario: 2 });
+  check([[1, 0, 'swamp'], [1, 1, 'pasture'], [1, 2, 'hills'], [1, 3, 'mountains'], [3, 0, 'swamp'], [3, 1, 'hills'], [3, 2, 'mountains']].every(([r, c, t]) => hexAt(b2, r, c).terrain === t && hexAt(b2, r, c).river !== undefined),
+    'Ríos: los dos ríos en su lugar, con los terrenos impresos');
+  check(b2.bridgeSites.length === 7 && b2.bridgeSites.includes(b2.hexes[R[1]].edges.find(e => b2.edges[e].hexes.some(h => b2.hexes[h].terrain === 'sea' && b2.hexes[h].x < b2.hexes[R[1]].x))),
+    'Ríos: 7 sitios de puente, incluida la desembocadura');
+  const h12 = b2.hexes.find(h => h.number === 12);
+  check(h12 && h12.number2 === 2 && !b2.hexes.some(h => h.number === 2) && b2.hexes.filter(h => h.terrain === 'swamp').every(h => !h.number), 'Ríos: la «2» va con la «12» y los pantanos no llevan ficha');
+  // Ataque bárbaro
+  const b4 = C.generateBoard('traders', { scenario: 4 });
+  check(hexAt(b4, 0, 2).terrain === 'desert' && hexAt(b4, 4, 0).terrain === 'castle' &&
+    b4.hexes.slice(0, 19).map(h => h.number || 0).join() === '3,8,0,9,4,5,10,12,6,10,8,11,4,9,3,5,0,6,2', 'Ataque bárbaro: desierto, castillo y fichas como en el reglamento');
+  check(b4.hexes.filter(h => h.coastal).length === 10, 'Ataque bárbaro: 10 hexágonos costeros');
+  // Mercaderes y Bárbaros
+  const b5 = C.generateBoard('traders', { scenario: 5 });
+  check(hexAt(b5, 2, 0).terrain === 'castle' && hexAt(b5, 0, 2).terrain === 'quarry' && hexAt(b5, 4, 2).terrain === 'glassworks', 'Mercaderes y Bárbaros: castillo, cantera y vidriería en su esquina');
+  check(b5.barbStart.length === 3 && b5.barbStart.every(e => b5.edges[e].hexes.every(h => C.isLand(b5.hexes[h].terrain))), 'Mercaderes y Bárbaros: 3 bárbaros en los caminos marcados');
+  const t5 = game('traders', { scenario: 5 }, 3);
+  check(t5.tb.barbs.join() === t5.board.barbStart.join(), 'los bárbaros empiezan en los caminos marcados');
+  // puertos en los lugares fijos del marco en todos los escenarios
+  const fixedPorts = [1, 2, 3, 4, 5].every(sc => { const b = C.generateBoard('traders', { scenario: sc }); return b.ports.length === 9 && new Set(b.ports.flatMap(p => b.edges[p.edge].v)).size === 18; });
+  check(fixedPorts, 'Mercaderes y Bárbaros: 9 puertos en los lugares del marco en todos los escenarios');
+}
+
+// ================= tableros oficiales 5-6 =================
+{
+  const R = [0, 3, 7, 12, 18, 23, 27];
+  const hexAt = (b, r, c) => b.hexes[R[r] + c];
+  const b2 = C.generateBoard('traders56', { scenario: 2 });
+  check([[0, 1, 'swamp'], [1, 1, 'hills'], [2, 1, 'mountains'], [6, 1, 'swamp'], [5, 1, 'pasture'], [4, 1, 'hills'], [3, 1, 'mountains'], [3, 3, 'mountains'], [3, 4, 'pasture'], [3, 5, 'pasture']]
+    .every(([r, c, t]) => hexAt(b2, r, c).terrain === t && hexAt(b2, r, c).river !== undefined) && b2.bridgeSites.length === 10, 'Ríos 5-6: los tres ríos en su lugar y 10 sitios de puente');
+  check(!b2.hexes.some(h => h.number2) && b2.hexes.filter(h => h.number).length === 28, 'Ríos 5-6: las 28 fichas de la ampliación, sin la «2» junto a la «12»');
+  const b3 = C.generateBoard('traders56', { scenario: 3 });
+  check(hexAt(b3, 2, 1).terrain === 'oasis' && hexAt(b3, 4, 3).terrain === 'oasis' && b3.oases.every(o => o.arrows.length === 3), 'Caravanas 5-6: los dos oasis en su lugar, con 3 flechas cada uno');
+  const b4 = C.generateBoard('traders56', { scenario: 4 });
+  check(hexAt(b4, 3, 0).terrain === 'castle' && hexAt(b4, 3, 5).terrain === 'castle' && hexAt(b4, 2, 4).terrain === 'desert' && hexAt(b4, 4, 0).terrain === 'desert' &&
+    b4.hexes.slice(0, 30).map(h => h.number || 0).join() === '12,9,3,4,5,10,8,5,11,6,3,0,0,8,10,4,6,0,0,3,8,11,9,6,4,9,10,2,5,11', 'Ataque bárbaro 5-6: castillos, desiertos y fichas como en el reglamento');
+  check(b4.hexes.filter(h => h.coastal && (h.number === 5 || h.number === 9)).length === 4, 'Ataque bárbaro 5-6: dos «5» y dos «9» en la costa');
+  const b5 = C.generateBoard('traders56', { scenario: 5 });
+  const land5 = b5.hexes.filter(h => C.isLand(h.terrain));
+  check(land5.length === 37 && land5.filter(h => h.terrain === 'quarry').length === 3 && land5.filter(h => h.terrain === 'glassworks').length === 3 && land5.filter(h => h.number).length === 28 && b5.barbStart.length === 3,
+    'Mercaderes y Bárbaros 5-6: 37 hexágonos, 3 canteras, 3 vidrierías, 28 fichas y 3 bárbaros marcados');
+}
+
+// ================= caladeros y pilas de mercancías =================
+{
+  const b = C.generateBoard('traders', { scenario: 1 });
+  check(b.fishing.map(f => f.number).join() === '6,8,9,5,4,10' && C.generateBoard('traders', { scenario: 1 }).fishing.map(f => f.hex).join() === b.fishing.map(f => f.hex).join(),
+    'Pescadores 3-4: los 6 caladeros en los lugares del reglamento');
+  const t = game('traders', { scenario: 5 }, 3);
+  const cnt = (st, k) => st.filter(x => x === k).length;
+  check(['castle', 'quarry', 'glassworks'].every(k => t.tb.stacks[k].length === 12) && cnt(t.tb.stacks.castle, 'tools') === 6 && cnt(t.tb.stacks.quarry, 'marble') === 6,
+    'Mercaderes 3-4: 12 fichas por pila, 6 de cada mercancía');
+  const t6 = game('traders56', { scenario: 5 }, 5);
+  check(['castle', 'quarry', 'glassworks'].every(k => t6.tb.stacks[k].length === 18), 'Mercaderes 5-6: 18 fichas por pila');
 }
 
 console.log(fails ? fails + ' fallos' : 'Todas las pruebas pasaron');
