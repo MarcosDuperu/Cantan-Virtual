@@ -5,6 +5,9 @@
   const RES = C.RES;
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+  // Vista inclinada del tablero (activada por defecto)
+  const tiltOn = () => { try { return localStorage.getItem('catan.tilt') !== '0'; } catch { return true; } };
+
   const DIE = n => {
     const P = { 1: [[2, 2]], 2: [[1, 1], [3, 3]], 3: [[1, 1], [2, 2], [3, 3]], 4: [[1, 1], [1, 3], [3, 1], [3, 3]], 5: [[1, 1], [1, 3], [2, 2], [3, 1], [3, 3]], 6: [[1, 1], [1, 2], [1, 3], [3, 1], [3, 2], [3, 3]] };
     return `<svg viewBox="0 0 40 40" class="die-svg"><rect x="2" y="2" width="36" height="36" rx="7" fill="#fdfaf2" stroke="#7a6a4a" stroke-width="2"/>
@@ -41,6 +44,7 @@
           <div class="tb-bank" title="Cartas en el banco"></div>
           <button class="tb-btn" data-act="costs" title="Tabla de costes">Costes</button>
           <button class="tb-btn" data-act="rules" title="Reglas">Reglas</button>
+          <button class="tb-btn ${tiltOn() ? 'on' : ''}" data-act="tilt" title="Vista inclinada del tablero">3D</button>
           <button class="tb-btn" data-act="sound" title="Sonido">${C.Sound.enabled ? '🔊' : '🔈'}</button>
         </header>
         <aside class="players"></aside>
@@ -71,6 +75,7 @@
       this.$ = { players: q('.players'), board: q('.board'), banner: q('.status-banner'), dice: q('.dice-box'), trade: q('.trade-float'),
         toasts: q('.toasts'), log: q('.log'), chat: q('.chat-list'), hand: q('.hand'), devs: q('.devs'), specials: q('.specials'), reveal: q('.reveal-layer'), actions: q('.actions'),
         modal: q('.modal-layer'), mode: q('.tb-mode'), turn: q('.tb-turn'), bank: q('.tb-bank') };
+      this.$.board.classList.toggle('tilt', tiltOn());
       this.board = new C.BoardView(this.$.board, { onClick: (k, id) => this.boardClick(k, id) });
       this.el.querySelector('.topbar').addEventListener('click', e => {
         const b = e.target.closest('[data-act]');
@@ -81,6 +86,7 @@
         else if (a === 'costs') this.openCosts();
         else if (a === 'rules') this.openRules();
         else if (a === 'sound') { b.textContent = C.Sound.toggle() ? '🔊' : '🔈'; }
+        else if (a === 'tilt') { const on = !tiltOn(); try { localStorage.setItem('catan.tilt', on ? '1' : '0'); } catch { /* ignore */ } b.classList.toggle('on', on); this.$.board.classList.toggle('tilt', on); }
       });
       this.el.querySelector('.chat-form').addEventListener('submit', e => {
         e.preventDefault();

@@ -126,7 +126,7 @@
   // ---------- selección de modo ----------
   function modeCards(selected, onPick, container) {
     container.innerHTML = MODE_CARDS.map(m => `<button class="mode-card ${m.id === selected ? 'on' : ''} ${m.disabled ? 'disabled' : ''}" data-mode="${m.id}" ${m.disabled ? 'disabled' : ''}>
-      <div class="mc-art">${m.art.map(a => `<span class="th th-${a}">${icon(a, 26)}</span>`).join('')}</div>
+      <div class="mc-banner"><div class="mc-art">${m.art.map(a => `<span class="th th-${a}">${icon(a, 26)}</span>`).join('')}</div></div>
       <div class="mc-title">${m.title}</div><div class="mc-sub">${m.sub}</div><div class="mc-desc">${m.desc}</div>
       ${m.disabled ? '<div class="mc-soon">Próximamente</div>' : ''}</button>`).join('');
     container.onclick = e => {

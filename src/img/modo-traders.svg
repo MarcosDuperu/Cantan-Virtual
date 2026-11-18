@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 160" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6a45a"/><stop offset="1" stop-color="#fde3a8"/></linearGradient>
+  </defs>
+  <rect width="300" height="160" fill="url(#sky)"/>
+  <circle cx="70" cy="56" r="22" fill="#fff1c0" opacity=".9"/>
+  <path d="M0,96 Q50,70 110,88 Q170,104 220,82 Q260,66 300,84 V160 H0Z" fill="#e6c27a"/>
+  <path d="M0,118 Q80,98 160,112 T300,106 V160 H0Z" fill="#d9ad5c"/>
+  <path d="M190,160 C200,138 250,128 240,112 C232,100 270,94 300,96 V112 C280,112 262,112 262,120 C266,138 222,146 220,160Z" fill="#4aa3e0"/>
+  <g transform="translate(274,90)"><path d="M0,10 V-2 L8,-9 L16,-2 V10Z" fill="#d8d2c4" stroke="#4a4235" stroke-width="1.2"/><path d="M-6,10 V0 L0,-6 L6,0 V10Z" fill="#e9b92d" stroke="#4a4235" stroke-width="1.2"/></g>
+  <g fill="#8a5a2a" stroke="#4a2a10" stroke-width="1.2">
+    <g transform="translate(46,118)"><path d="M-14,0 Q-12,-12 0,-12 Q4,-20 10,-12 Q16,-12 16,-4 L20,-14 Q26,-16 26,-10 L22,-6 L20,4 L16,4 L14,-2 L-6,-2 L-8,8 L-12,8 L-12,0Z"/><path d="M-4,-14 h12 v-4 h-12Z" fill="#c0281c"/></g>
+    <g transform="translate(96,124) scale(.9)"><path d="M-14,0 Q-12,-12 0,-12 Q4,-20 10,-12 Q16,-12 16,-4 L20,-14 Q26,-16 26,-10 L22,-6 L20,4 L16,4 L14,-2 L-6,-2 L-8,8 L-12,8 L-12,0Z"/><path d="M-4,-14 h12 v-4 h-12Z" fill="#2f6fd6"/></g>
+  </g>
+  <path d="M30,132 Q90,124 150,134" stroke="#a87a3a" stroke-width="3" stroke-dasharray="6 5" fill="none"/>
+  <g transform="translate(150,132)"><rect x="-16" y="-14" width="32" height="14" rx="2" fill="#8b5e34" stroke="#3a2510" stroke-width="1.5"/>
+    <rect x="-12" y="-22" width="10" height="9" fill="#f3d562" stroke="#7a5a10"/><rect x="0" y="-22" width="10" height="9" fill="#a3a9b1" stroke="#4a4f55"/>
+    <circle cx="-9" cy="2" r="5" fill="#5a3a17" stroke="#2b1a0a" stroke-width="1.5"/><circle cx="9" cy="2" r="5" fill="#5a3a17" stroke="#2b1a0a" stroke-width="1.5"/></g>
+  <g transform="translate(220,150)"><path d="M-8,0 Q-2,-5 4,0 Q-2,5 -8,0Z M4,0 L8,-3 L8,3Z" fill="#e8f6ff"/></g>
+</svg>

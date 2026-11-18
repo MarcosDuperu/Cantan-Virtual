@@ -2,6 +2,7 @@
 (function (root) {
   const C = root.Catan;
   const S = 50; // radio del hexágono en unidades SVG
+  let CUR = ''; // prefijo de ids del tablero que se está dibujando
 
   function rng(seed) {
     let x = (seed * 9301 + 49297) % 233280;
@@ -148,6 +149,29 @@
     return out;
   }
 
+  function hexPts(h, scale = 1) {
+    const pts = [];
+    for (let i = 0; i < 6; i++) {
+      const a = Math.PI / 180 * (60 * i - (h.flat ? 0 : 30));
+      pts.push([(h.x + Math.cos(a) * scale) * S, (h.y + Math.sin(a) * scale) * S]);
+    }
+    return pts;
+  }
+  // Grosor de una pieza hexagonal: caras laterales sombreadas según su orientación (luz arriba a la izquierda)
+  function prismSides(h, scale, depth, color) {
+    const p = hexPts(h, scale);
+    let out = `<polygon points="${p.map(([x, y]) => x.toFixed(1) + ',' + (y + depth).toFixed(1)).join(' ')}" fill="${color}"/>`;
+    for (let i = 0; i < 6; i++) {
+      const [x1, y1] = p[i], [x2, y2] = p[(i + 1) % 6];
+      const nx = y2 - y1, ny = x1 - x2; // normal hacia fuera (puntos en sentido horario en pantalla)
+      if (ny <= 0.01) continue; // cara oculta (mira hacia arriba)
+      const len = Math.hypot(nx, ny), dark = 0.18 + 0.32 * Math.max(0, nx / len) + 0.12 * (ny / len);
+      out += `<polygon points="${x1.toFixed(1)},${y1.toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)} ${x2.toFixed(1)},${(y2 + depth).toFixed(1)} ${x1.toFixed(1)},${(y1 + depth).toFixed(1)}" fill="${color}"/>
+        <polygon points="${x1.toFixed(1)},${y1.toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)} ${x2.toFixed(1)},${(y2 + depth).toFixed(1)} ${x1.toFixed(1)},${(y1 + depth).toFixed(1)}" fill="rgba(0,0,0,${dark.toFixed(2)})"/>`;
+    }
+    return out;
+  }
+
   function hexPoints(h, scale = 1) {
     const pts = [];
     for (let i = 0; i < 6; i++) {
@@ -163,8 +187,9 @@
     const pips = C.PIPS[h.number];
     let dots = '';
     for (let i = 0; i < pips; i++) dots += `<circle cx="${cx + (i - (pips - 1) / 2) * 3.4}" cy="${cy + 9}" r="1.3" fill="${red ? '#c0281c' : '#333'}"/>`;
-    return `<g class="token"><circle cx="${cx + 1}" cy="${cy + 2}" r="${0.33 * S}" fill="rgba(0,0,0,.25)"/>
-      <circle cx="${cx}" cy="${cy}" r="${0.33 * S}" fill="#f6e8c6" stroke="#8a6d3b" stroke-width="1.5"/>
+    return `<g class="token"><ellipse cx="${cx + 2}" cy="${cy + 6}" rx="${0.34 * S}" ry="${0.3 * S}" fill="rgba(0,0,0,.3)"/>
+      <rect x="${cx - 0.33 * S}" y="${cy}" width="${0.66 * S}" height="3.5" fill="#b3955c"/><circle cx="${cx}" cy="${cy + 3.5}" r="${0.33 * S}" fill="#a3854c" stroke="#6e5530" stroke-width="1.2"/>
+      <circle cx="${cx}" cy="${cy}" r="${0.33 * S}" fill="url(#${CUR}-tokface)" stroke="#8a6d3b" stroke-width="1.5"/>
       <text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="${red ? 19 : 17}" font-weight="800" font-family="Georgia,serif" fill="${red ? '#c0281c' : '#2b2b2b'}">${h.number}</text>${dots}</g>`;
   }
 
@@ -189,15 +214,21 @@
     return svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
   }
 
+  // Pieza de madera con volumen: sombra, costado oscuro desplazado y cara superior con brillo
+  function solid(d, col, depth = 3.2) {
+    return `<path d="${d}" transform="translate(2.5,${depth + 2.5})" fill="rgba(0,0,0,.35)"/>
+      <path d="${d}" transform="translate(0,${depth})" fill="${col}" stroke="#1b1b1b" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="${d}" transform="translate(0,${depth})" fill="rgba(0,0,0,.38)"/>
+      <path d="${d}" fill="${col}" stroke="#1b1b1b" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="${d}" fill="url(#${CUR}-shine)"/>`;
+  }
   function settlementSVG(v, color, cls = '') {
     const x = v.x * S, y = v.y * S;
-    return `<g class="piece ${cls}" transform="translate(${x},${y}) scale(1.3)"><path d="${C.UIIcons.PIECE.settlement}" transform="translate(1.5,2)" fill="rgba(0,0,0,.35)"/>
-      <path d="${C.UIIcons.PIECE.settlement}" fill="${C.colorHex(color)}" stroke="#1b1b1b" stroke-width="1.8" stroke-linejoin="round"/></g>`;
+    return `<g class="piece ${cls}" transform="translate(${x},${y - 2}) scale(1.3)">${solid(C.UIIcons.PIECE.settlement, C.colorHex(color))}</g>`;
   }
   function citySVG(v, color, cls = '') {
     const x = v.x * S, y = v.y * S;
-    return `<g class="piece ${cls}" transform="translate(${x},${y}) scale(1.25)"><path d="${C.UIIcons.PIECE.city}" transform="translate(1.5,2)" fill="rgba(0,0,0,.35)"/>
-      <path d="${C.UIIcons.PIECE.city}" fill="${C.colorHex(color)}" stroke="#1b1b1b" stroke-width="1.8" stroke-linejoin="round"/>
+    return `<g class="piece ${cls}" transform="translate(${x},${y - 2}) scale(1.25)">${solid(C.UIIcons.PIECE.city, C.colorHex(color))}
       <rect x="2.5" y="-4" width="3" height="4" fill="#1b1b1b" opacity=".5"/></g>`;
   }
   const AREA_COL = { trade: '#e9b92d', politics: '#2f6fd6', science: '#2f9a4a' };
@@ -213,9 +244,7 @@
   function metroSVG(v, color, area, cls = '') {
     const x = v.x * S, y = v.y * S;
     const ac = AREA_COL[area] || '#f2c230';
-    return `<g class="piece ${cls}" transform="translate(${x},${y}) scale(1.3)">
-      <path d="M-15,9 L-15,-2 L-8,-8 L-1,-2 L-1,-9 L-5,-9 L-5,-14 L5,-14 L5,-9 L1,-9 L1,-2 L15,-2 L15,9Z" transform="translate(1.5,2)" fill="rgba(0,0,0,.35)"/>
-      <path d="M-15,9 L-15,-2 L-8,-8 L-1,-2 L-1,-9 L-5,-9 L-5,-14 L5,-14 L5,-9 L1,-9 L1,-2 L15,-2 L15,9Z" fill="${C.colorHex(color)}" stroke="#1b1b1b" stroke-width="1.6" stroke-linejoin="round"/>
+    return `<g class="piece ${cls}" transform="translate(${x},${y - 2}) scale(1.3)">${solid('M-15,9 L-15,-2 L-8,-8 L-1,-2 L-1,-9 L-5,-9 L-5,-14 L5,-14 L5,-9 L1,-9 L1,-2 L15,-2 L15,9Z', C.colorHex(color))}
       <path d="M-5,-14 L0,-21 L5,-14Z" fill="${ac}" stroke="#1b1b1b" stroke-width="1.2"/><circle cx="0" cy="-23" r="2" fill="${ac}" stroke="#1b1b1b" stroke-width=".8"/>
       <rect x="6" y="1" width="3" height="4" fill="#1b1b1b" opacity=".5"/><rect x="-11" y="1" width="3" height="4" fill="#1b1b1b" opacity=".5"/></g>`;
   }
@@ -225,8 +254,9 @@
     const col = C.colorHex(color);
     const rings = [0, 1, 2].slice(0, level).map(i => `<circle cx="0" cy="0" r="${11.5 + i * 2.6}" fill="none" stroke="${active ? '#f2c230' : '#9a9a9a'}" stroke-width="1.6"/>`).join('');
     return `<g class="piece knight ${active ? 'active' : 'inactive'} ${cls}" transform="translate(${x},${y})">
-      <circle cx="1.5" cy="2" r="${11 + level * 2.6}" fill="rgba(0,0,0,.35)"/>
-      <circle cx="0" cy="0" r="11" fill="${active ? col : '#d8d4cc'}" stroke="#1b1b1b" stroke-width="1.6"/>${rings}
+      <circle cx="2" cy="5" r="${11 + level * 2.6}" fill="rgba(0,0,0,.35)"/>
+      <circle cx="0" cy="3" r="11" fill="${active ? col : '#d8d4cc'}" stroke="#1b1b1b" stroke-width="1.6"/><circle cx="0" cy="3" r="11" fill="rgba(0,0,0,.38)"/>
+      <circle cx="0" cy="0" r="11" fill="${active ? col : '#d8d4cc'}" stroke="#1b1b1b" stroke-width="1.6"/><circle cx="0" cy="0" r="11" fill="url(#${CUR}-shine)"/>${rings}
       <path d="M-5.5,-1 Q0,-10 5.5,-1 L5.5,4 L-5.5,4Z" fill="${active ? '#dfe3e8' : '#bdbab3'}" stroke="#1b1b1b" stroke-width="1"/>
       <rect x="-4" y="0" width="8" height="1.6" fill="#1b1b1b"/>
       ${active ? '' : `<circle cx="0" cy="0" r="11" fill="${col}" opacity=".45"/>`}
@@ -240,9 +270,14 @@
   }
   function roadSVG(b, e, color, cls = '', damaged) {
     const E = b.edges[e];
-    return `<g class="piece ${cls}" transform="translate(${E.x * S},${E.y * S}) rotate(${E.angle + (damaged ? 90 : 0)})${damaged ? ' scale(.6,1)' : ''}">
-      <rect x="${-0.36 * S}" y="-4" width="${0.72 * S}" height="8" rx="2.5" fill="rgba(0,0,0,.35)" transform="translate(1,1.5)"/>
-      <rect x="${-0.36 * S}" y="-4" width="${0.72 * S}" height="8" rx="2.5" fill="${C.colorHex(color)}" stroke="#1b1b1b" stroke-width="1.6"/></g>`;
+    const rot = `rotate(${E.angle + (damaged ? 90 : 0)})${damaged ? ' scale(.6,1)' : ''}`;
+    const bar = (fill, extra = '') => `<rect x="${-0.36 * S}" y="-4" width="${0.72 * S}" height="8" rx="2.5" fill="${fill}"${extra}/>`;
+    const col = C.colorHex(color), line = ' stroke="#1b1b1b" stroke-width="1.6"';
+    // el grosor va siempre hacia abajo en pantalla, sea cual sea la orientación del camino
+    return `<g class="piece ${cls}" transform="translate(${E.x * S},${E.y * S})">
+      <g transform="translate(2,5.5) ${rot}">${bar('rgba(0,0,0,.35)')}</g>
+      <g transform="translate(0,3) ${rot}">${bar(col, line)}${bar('rgba(0,0,0,.38)')}</g>
+      <g transform="${rot}">${bar(col, line)}${bar(`url(#${CUR}-shine)`)}</g></g>`;
   }
   function shipSVG(b, e, color, cls = '') {
     const E = b.edges[e];
@@ -271,9 +306,7 @@
   const itemSVG = (k, x, y, size) => `<g transform="translate(${x - size / 2},${y - size / 2}) scale(${size / 40})">${iconInner(k)}</g>`;
   function harborSVG(v, color, cls = '') {
     const x = v.x * S, y = v.y * S;
-    return `<g class="piece ${cls}" transform="translate(${x},${y}) scale(1.3)">
-      <path d="M-13,9 L-13,-2 L-4,-10 L5,-2 L5,1 L13,1 L13,9Z" transform="translate(1.5,2)" fill="rgba(0,0,0,.35)"/>
-      <path d="M-13,9 L-13,-2 L-4,-10 L5,-2 L5,1 L13,1 L13,9Z" fill="${C.colorHex(color)}" stroke="#1b1b1b" stroke-width="1.6" stroke-linejoin="round"/>
+    return `<g class="piece ${cls}" transform="translate(${x},${y - 2}) scale(1.3)">${solid('M-13,9 L-13,-2 L-4,-10 L5,-2 L5,1 L13,1 L13,9Z', C.colorHex(color))}
       <g stroke="#1b1b1b" stroke-width="1.3" fill="none"><path d="M9,1.5 V7.5"/><path d="M6.5,5.5 Q9,8.5 11.5,5.5"/><circle cx="9" cy="2.6" r="1"/></g>
       <rect x="-8" y="0" width="3" height="4" fill="#1b1b1b" opacity=".5"/></g>`;
   }
@@ -480,6 +513,9 @@
       el.innerHTML = `<svg class="board-svg" preserveAspectRatio="xMidYMid meet">
         <defs>
           ${Object.entries(BASE).map(([k, [a, b]]) => `<radialGradient id="${uid}-${k}" cx="45%" cy="40%" r="70%"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></radialGradient>`).join('')}
+          <linearGradient id="${uid}-bevel" x1="0" y1="0" x2=".35" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".38"/><stop offset=".35" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient>
+          <linearGradient id="${uid}-shine" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>
+          <radialGradient id="${uid}-tokface" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#fffaf0"/><stop offset="1" stop-color="#ecd9ab"/></radialGradient>
           <filter id="${uid}-glow"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
         </defs>
         <g class="layer-static"></g><g class="layer-pieces"></g><g class="layer-hl"></g></svg>`;
@@ -495,6 +531,7 @@
     }
 
     renderStatic(b) {
+      CUR = this.uid;
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       b.hexes.forEach(h => {
         minX = Math.min(minX, h.x); maxX = Math.max(maxX, h.x); minY = Math.min(minY, h.y); maxY = Math.max(maxY, h.y);
@@ -507,12 +544,16 @@
         out += `<polygon points="${hexPoints(h, 1.02)}" fill="url(#${this.uid}-${h.terrain})"/>${decor(h)}`;
         if (h.frame && b.isSF) out += `<polygon points="${hexPoints(h, 1.02)}" fill="rgba(8,30,60,.28)"/>`;
       });
-      // sombra de la isla
-      b.hexes.filter(h => isTileT(h.terrain)).forEach(h => {
-        out += `<polygon points="${hexPoints(h, 1.08)}" fill="#e8d9a6" stroke="#e8d9a6" stroke-width="4"/>`;
-      });
-      b.hexes.filter(h => isTileT(h.terrain)).forEach(h => {
-        out += `<g class="hex"><polygon points="${hexPoints(h, 0.97)}" fill="url(#${this.uid}-${h.terrain})" stroke="#f1e6c2" stroke-width="2.5"/>${decor(h)}</g>`;
+      // isla: sombra sobre el agua, costado de arena y playa
+      const land = b.hexes.filter(h => isTileT(h.terrain)).sort((a, c) => a.y - c.y || a.x - c.x);
+      land.forEach(h => { out += `<polygon points="${hexPoints(h, 1.1)}" fill="rgba(5,25,50,.35)" transform="translate(4,14)"/>`; });
+      land.forEach(h => { out += prismSides(h, 1.08, 9, '#c9b27a'); });
+      land.forEach(h => { out += `<polygon points="${hexPoints(h, 1.08)}" fill="#e8d9a6" stroke="#e8d9a6" stroke-width="4"/>`; });
+      // casillas con grosor (las de abajo tapan el costado de las de arriba)
+      land.forEach(h => {
+        out += `<g class="hex">${prismSides(h, 0.95, 6, BASE[h.terrain] ? BASE[h.terrain][1] : '#888')}
+          <polygon points="${hexPoints(h, 0.95)}" fill="url(#${this.uid}-${h.terrain})" stroke="rgba(255,248,225,.75)" stroke-width="1.5"/>${decor(h)}
+          <polygon points="${hexPoints(h, 0.95)}" fill="url(#${this.uid}-bevel)" pointer-events="none"/></g>`;
       });
       // zona inexplorada (Piratas y Exploradores)
       b.hexes.filter(h => h.terrain === 'hidden').forEach(h => {
@@ -523,6 +564,7 @@
     }
 
     render(view, hl) {
+      CUR = this.uid;
       const b = view.board;
       const key = b.hexes.length + ':' + b.hexes.map(h => h.terrain + (h.number || '')).join(',') + '|' + (b.ports || []).map(p => p.edge).join(',');
       if (key !== this.boardKey) { this.boardKey = key; this.renderStatic(b); this.prevPieces = new Set(); }

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 160" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b3f74"/><stop offset=".6" stop-color="#c76b5a"/><stop offset="1" stop-color="#f2b46a"/></linearGradient>
+  </defs>
+  <rect width="300" height="160" fill="url(#sky)"/>
+  <rect y="96" width="300" height="20" fill="#3a5f86"/>
+  <g transform="translate(250,96)" fill="#1b1b1b"><path d="M-16,0 L16,0 L11,6 L-11,6Z"/><path d="M0,-18 V0" stroke="#1b1b1b" stroke-width="1.5"/><path d="M1,-17 L12,-3 L1,-3Z" fill="#5a1a10"/></g>
+  <g transform="translate(212,98) scale(.7)" fill="#1b1b1b"><path d="M-16,0 L16,0 L11,6 L-11,6Z"/><path d="M0,-18 V0" stroke="#1b1b1b" stroke-width="1.5"/><path d="M1,-17 L12,-3 L1,-3Z" fill="#5a1a10"/></g>
+  <path d="M0,112 Q150,100 300,114 V160 H0Z" fill="#5d7a3a"/>
+  <g fill="#a39a88" stroke="#3e3a33" stroke-width="1.5">
+    <path d="M30,132 V86 H40 V78 H50 V86 H60 V78 H70 V86 H80 V132Z"/>
+    <path d="M80,132 V96 H90 V90 H100 V96 H120 V90 H130 V96 H140 V132Z"/>
+    <path d="M140,132 V70 H148 V62 H156 V70 H164 V62 H172 V70 H180 V132Z"/>
+  </g>
+  <path d="M100,132 V116 Q110,106 120,116 V132Z" fill="#3e2a14"/>
+  <g fill="#f2d18a"><rect x="48" y="96" width="5" height="8"/><rect x="156" y="82" width="5" height="9"/><rect x="156" y="100" width="5" height="9"/></g>
+  <path d="M160,62 V42" stroke="#3e3a33" stroke-width="2"/><path d="M160,42 L176,47 L160,52Z" fill="#2f6fd6"/>
+  <path d="M55,78 V60" stroke="#3e3a33" stroke-width="2"/><path d="M55,60 L69,64 L55,68Z" fill="#e9b92d"/>
+  <path d="M110,90 V74" stroke="#3e3a33" stroke-width="2"/><path d="M110,74 L124,78 L110,82Z" fill="#2f9a4a"/>
+  <g transform="translate(214,140)">
+    <circle r="14" fill="#c0281c" stroke="#1b1b1b" stroke-width="2"/><circle r="17" fill="none" stroke="#f2c230" stroke-width="2"/>
+    <path d="M-7,-1 Q0,-13 7,-1 L7,5 L-7,5Z" fill="#dfe3e8" stroke="#1b1b1b" stroke-width="1.2"/><rect x="-5" y="0" width="10" height="2" fill="#1b1b1b"/>
+  </g>
+  <g transform="translate(260,144) scale(.8)">
+    <circle r="14" fill="#2f6fd6" stroke="#1b1b1b" stroke-width="2"/>
+    <path d="M-7,-1 Q0,-13 7,-1 L7,5 L-7,5Z" fill="#dfe3e8" stroke="#1b1b1b" stroke-width="1.2"/><rect x="-5" y="0" width="10" height="2" fill="#1b1b1b"/>
+  </g>
+</svg>

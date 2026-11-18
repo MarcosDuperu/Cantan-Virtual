@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 160" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1d3a5c"/><stop offset="1" stop-color="#6a8fae"/></linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f5f8f"/><stop offset="1" stop-color="#0b2e4d"/></linearGradient>
+    <radialGradient id="fog" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#dbe4ec" stop-opacity=".8"/><stop offset="1" stop-color="#dbe4ec" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="300" height="160" fill="url(#sky)"/>
+  <circle cx="250" cy="34" r="12" fill="#f4f1dc"/><circle cx="256" cy="30" r="11" fill="#1d3a5c"/>
+  <g fill="#fff"><circle cx="40" cy="20" r="1"/><circle cx="90" cy="34" r="1"/><circle cx="150" cy="16" r="1.2"/><circle cx="200" cy="44" r="1"/></g>
+  <rect y="84" width="300" height="76" fill="url(#sea)"/>
+  <path d="M10,86 Q30,72 56,76 L70,86Z" fill="#3c5a3a"/>
+  <ellipse cx="70" cy="86" rx="80" ry="18" fill="url(#fog)"/>
+  <ellipse cx="260" cy="96" rx="70" ry="16" fill="url(#fog)"/>
+  <g transform="translate(176,116)">
+    <path d="M-40,4 L40,4 L30,24 L-32,24Z" fill="#1c1c1c" stroke="#000" stroke-width="2"/>
+    <path d="M0,-60 V4" stroke="#000" stroke-width="3"/>
+    <path d="M-26,-52 L26,-52 L22,-4 L-22,-4Z" fill="#2b2b2b" stroke="#000" stroke-width="1.5"/>
+    <circle cx="0" cy="-32" r="7" fill="#f6f1e1"/><circle cx="-2.5" cy="-33" r="1.6" fill="#2b2b2b"/><circle cx="2.5" cy="-33" r="1.6" fill="#2b2b2b"/>
+    <path d="M-9,-20 L9,-14 M9,-20 L-9,-14" stroke="#f6f1e1" stroke-width="2.5"/>
+    <path d="M0,-60 L14,-56 L0,-52Z" fill="#c0281c"/>
+  </g>
+  <g transform="translate(56,130)">
+    <circle r="20" fill="#e9d6a8" stroke="#6b4423" stroke-width="2.5"/>
+    <path d="M0,-15 L4,0 L0,15 L-4,0Z" fill="#c0281c"/><path d="M-15,0 L0,-3 L15,0 L0,3Z" fill="#3b3b3f"/>
+    <circle r="2.5" fill="#6b4423"/>
+  </g>
+  <g stroke="#7fb3d6" stroke-width="1.5" fill="none" opacity=".7"><path d="M110,140 q6,-4 12,0 t12,0"/><path d="M240,140 q6,-4 12,0 t12,0"/><path d="M260,120 q6,-4 12,0 t12,0"/></g>
+</svg>
