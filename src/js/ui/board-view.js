@@ -205,8 +205,8 @@
     return `<g class="port">
       <line x1="${v0.x * S}" y1="${v0.y * S}" x2="${bx}" y2="${by}" stroke="#8b5e34" stroke-width="4" stroke-linecap="round"/>
       <line x1="${v1.x * S}" y1="${v1.y * S}" x2="${bx}" y2="${by}" stroke="#8b5e34" stroke-width="4" stroke-linecap="round"/>
-      <circle cx="${bx}" cy="${by}" r="15" fill="${col}" stroke="#5a3a17" stroke-width="2"/>
-      ${ico}<text x="${bx}" y="${by + (p.type === 'any' ? 4.5 : 11)}" text-anchor="middle" font-size="${p.type === 'any' ? 11 : 8}" font-weight="800" fill="#2b2b2b">${label}</text></g>`;
+      <g class="bb"><circle cx="${bx}" cy="${by}" r="15" fill="${col}" stroke="#5a3a17" stroke-width="2"/>
+      ${ico}<text x="${bx}" y="${by + (p.type === 'any' ? 4.5 : 11)}" text-anchor="middle" font-size="${p.type === 'any' ? 11 : 8}" font-weight="800" fill="#2b2b2b">${label}</text></g></g>`;
   }
 
   function iconInner(name) {
@@ -274,7 +274,7 @@
     const bar = (fill, extra = '') => `<rect x="${-0.36 * S}" y="-4" width="${0.72 * S}" height="8" rx="2.5" fill="${fill}"${extra}/>`;
     const col = C.colorHex(color), line = ' stroke="#1b1b1b" stroke-width="1.6"';
     // el grosor va siempre hacia abajo en pantalla, sea cual sea la orientación del camino
-    return `<g class="piece ${cls}" transform="translate(${E.x * S},${E.y * S})">
+    return `<g class="piece flat ${cls}" transform="translate(${E.x * S},${E.y * S})">
       <g transform="translate(2,5.5) ${rot}">${bar('rgba(0,0,0,.35)')}</g>
       <g transform="translate(0,3) ${rot}">${bar(col, line)}${bar('rgba(0,0,0,.38)')}</g>
       <g transform="${rot}">${bar(col, line)}${bar(`url(#${CUR}-shine)`)}</g></g>`;
@@ -374,7 +374,7 @@
   function bridgeSVG(b, e, color, cls = '') {
     const E = b.edges[e];
     const col = C.colorHex(color);
-    return `<g class="piece ${cls}" transform="translate(${E.x * S},${E.y * S}) rotate(${E.angle})">
+    return `<g class="piece flat ${cls}" transform="translate(${E.x * S},${E.y * S}) rotate(${E.angle})">
       <rect x="${-0.4 * S}" y="-7" width="${0.8 * S}" height="14" rx="3" fill="#8b5e34" stroke="#1b1b1b" stroke-width="1.4"/>
       ${[-12, -4, 4, 12].map(x => `<line x1="${x}" y1="-7" x2="${x}" y2="7" stroke="#5a3a17" stroke-width="1.2"/>`).join('')}
       <rect x="${-0.4 * S}" y="-7" width="${0.8 * S}" height="3.5" fill="${col}" stroke="#1b1b1b" stroke-width=".8"/>
@@ -426,10 +426,9 @@
     return out;
   }
 
-  function tbPieces(view, b, hl) {
-    const T = view.tb;
+  // ríos de Mercaderes y Bárbaros: se dibujan debajo de las fichas de números
+  function tbRivers(b) {
     let out = '';
-    const col = o => view.players[o] ? C.colorHex(view.players[o].color) : '#999';
     // ríos (líneas por el centro de sus hexágonos)
     const rivers = {};
     b.hexes.forEach(h => { if (h.river !== undefined) (rivers[h.river] = rivers[h.river] || [])[h.riverIdx] = h; });
@@ -444,6 +443,13 @@
       out += `<path d="${d}" stroke="#2f7fbf" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>
         <path d="${d}" stroke="#7fc8f0" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>`;
     });
+    return out;
+  }
+
+  function tbPieces(view, b, hl) {
+    const T = view.tb;
+    let out = '';
+    const col = o => view.players[o] ? C.colorHex(view.players[o].color) : '#999';
     (b.bridgeSites || []).forEach(e => {
       if (view.roads[e]) return;
       const E = b.edges[e];
@@ -518,11 +524,13 @@
           <radialGradient id="${uid}-tokface" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#fffaf0"/><stop offset="1" stop-color="#ecd9ab"/></radialGradient>
           <filter id="${uid}-glow"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
         </defs>
-        <g class="layer-static"></g><g class="layer-pieces"></g><g class="layer-hl"></g></svg>`;
+        <g class="tilt-root"><g class="layer-static"></g><g class="layer-pieces"></g><g class="layer-hl"></g></g></svg>`;
       this.svg = el.querySelector('svg');
       this.gStatic = el.querySelector('.layer-static');
       this.gPieces = el.querySelector('.layer-pieces');
       this.gHl = el.querySelector('.layer-hl');
+      this.gRoot = el.querySelector('.tilt-root');
+      this.k = 1; // compresión vertical del tablero (1 = vista cenital)
       this.svg.addEventListener('click', ev => {
         const t = ev.target.closest('[data-kind]');
         if (t) this.onClick(t.dataset.kind, +t.dataset.id, ev);
@@ -537,7 +545,10 @@
         minX = Math.min(minX, h.x); maxX = Math.max(maxX, h.x); minY = Math.min(minY, h.y); maxY = Math.max(maxY, h.y);
       });
       const pad = 0.95;
-      this.svg.setAttribute('viewBox', `${(minX - pad) * S} ${(minY - pad * 1.1) * S} ${(maxX - minX + 2 * pad) * S} ${(maxY - minY + 2.2 * pad) * S}`);
+      const k = this.k;
+      this.gRoot.setAttribute('transform', k === 1 ? '' : `scale(1,${k})`);
+      const extra = k === 1 ? 0 : 16; // margen arriba para las piezas de pie de la fila superior
+      this.svg.setAttribute('viewBox', `${(minX - pad) * S} ${(minY - pad * 1.1) * S * k - extra} ${(maxX - minX + 2 * pad) * S} ${(maxY - minY + 2.2 * pad) * S * k + extra}`);
       let out = '';
       // marco de mar (y bancos de pesca)
       b.hexes.filter(h => isWaterT(h.terrain)).forEach(h => {
@@ -561,14 +572,17 @@
       });
       (b.ports || []).forEach(p => { out += portSVG(b, p); });
       this.gStatic.innerHTML = out;
+      this.upright(this.gStatic.querySelectorAll('.bb'));
     }
 
     render(view, hl) {
       CUR = this.uid;
+      this.lastView = view; this.lastHl = hl;
       const b = view.board;
       const key = b.hexes.length + ':' + b.hexes.map(h => h.terrain + (h.number || '')).join(',') + '|' + (b.ports || []).map(p => p.edge).join(',');
       if (key !== this.boardKey) { this.boardKey = key; this.renderStatic(b); this.prevPieces = new Set(); }
       let out = '';
+      if (view.tb) out += `<g class="flat">${tbRivers(b)}</g>`;
       b.hexes.forEach(h => { if (h.number) out += token(h); });
       const seen = new Set();
       const colorOf = o => o < 0 || !view.players[o] ? 'neutral' : view.players[o].color;
@@ -603,6 +617,7 @@
       if (view.tb) out += tbPieces(view, b, hl || {});
       if (view.sf) out += sfPieces(view, b);
       this.gPieces.innerHTML = out;
+      this.upright([...this.gPieces.children].filter(el => !el.classList.contains('flat')));
       this.renderHL(b, hl || {});
     }
 
@@ -642,6 +657,35 @@
         out += `<circle cx="${e.x * S}" cy="${e.y * S}" r="14" fill="none" stroke="#ffe066" stroke-width="3" class="pulse"/>`;
       });
       this.gHl.innerHTML = out;
+      this.upright(this.gHl.querySelectorAll('[data-kind=vertex], circle.pulse'));
+    }
+
+    // Vista inclinada: el tablero se comprime en vertical dentro del SVG (sigue siendo vectorial y nítido)
+    setTilt(on) {
+      const k = on ? 0.78 : 1;
+      if (k === this.k) return;
+      this.k = k;
+      this.boardKey = null;
+      if (this.lastView) this.render(this.lastView, this.lastHl);
+    }
+    // Fichas, piezas y etiquetas se dibujan de pie (sin comprimir) en su posición del tablero inclinado
+    upright(list) {
+      const k = this.k;
+      if (k === 1) return;
+      const NS = 'http://www.w3.org/2000/svg';
+      [...list].forEach(el => {
+        if (/^(line|polyline|polygon)$/.test(el.tagName)) return;
+        // se mide el grupo envolvente: así la caja incluye la posición (transform) del elemento
+        const g = document.createElementNS(NS, 'g');
+        el.parentNode.insertBefore(g, el);
+        g.appendChild(el);
+        let bb;
+        try { bb = g.getBBox(); } catch (e) { return; }
+        // lo que está apoyado sobre el tablero (ríos, zonas grandes) sigue inclinado con él
+        if ((!bb.width && !bb.height) || bb.width > 70 || bb.height > 70) return;
+        const ax = bb.x + bb.width / 2, ay = bb.y + bb.height / 2;
+        g.setAttribute('transform', `translate(${ax.toFixed(1)},${ay.toFixed(1)}) scale(1,${(1 / k).toFixed(4)}) translate(${(-ax).toFixed(1)},${(-ay).toFixed(1)})`);
+      });
     }
   }
 

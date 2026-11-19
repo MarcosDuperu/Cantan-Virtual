@@ -77,6 +77,7 @@
         modal: q('.modal-layer'), mode: q('.tb-mode'), turn: q('.tb-turn'), bank: q('.tb-bank') };
       this.$.board.classList.toggle('tilt', tiltOn());
       this.board = new C.BoardView(this.$.board, { onClick: (k, id) => this.boardClick(k, id) });
+      this.board.setTilt(tiltOn());
       this.el.querySelector('.topbar').addEventListener('click', e => {
         const b = e.target.closest('[data-act]');
         if (!b) return;
@@ -86,7 +87,7 @@
         else if (a === 'costs') this.openCosts();
         else if (a === 'rules') this.openRules();
         else if (a === 'sound') { b.textContent = C.Sound.toggle() ? '🔊' : '🔈'; }
-        else if (a === 'tilt') { const on = !tiltOn(); try { localStorage.setItem('catan.tilt', on ? '1' : '0'); } catch { /* ignore */ } b.classList.toggle('on', on); this.$.board.classList.toggle('tilt', on); }
+        else if (a === 'tilt') { const on = !tiltOn(); try { localStorage.setItem('catan.tilt', on ? '1' : '0'); } catch { /* ignore */ } b.classList.toggle('on', on); this.$.board.classList.toggle('tilt', on); this.board.setTilt(on); }
       });
       this.el.querySelector('.chat-form').addEventListener('submit', e => {
         e.preventDefault();
