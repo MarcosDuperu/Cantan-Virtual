@@ -15,11 +15,41 @@
   ];
 
   // ---------- perfil ----------
-  function loadProfile() {
-    try { return JSON.parse(localStorage.getItem('catan.profile')) || null; } catch { return null; }
+  // Hasta MAX_PROFILES perfiles guardados; uno de ellos es el activo (con el que se juega)
+  const MAX_PROFILES = 4;
+  const newId = () => 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  function loadProfiles() {
+    let data = null;
+    try { data = JSON.parse(localStorage.getItem('catan.profiles')); } catch { /* ignore */ }
+    if (!data || !Array.isArray(data.list)) {
+      data = { list: [], active: null };
+      // perfil único de versiones anteriores
+      let old = null;
+      try { old = JSON.parse(localStorage.getItem('catan.profile')); } catch { /* ignore */ }
+      if (old && old.name) { old.id = newId(); data.list.push(old); data.active = old.id; }
+    }
+    data.list = data.list.filter(p => p && p.name).slice(0, MAX_PROFILES);
+    data.list.forEach(p => { p.id = p.id || newId(); p.stats = p.stats || { played: 0, won: 0 }; });
+    if (!data.list.some(p => p.id === data.active)) data.active = data.list.length ? data.list[0].id : null;
+    return data;
   }
-  function saveProfile(p) { try { localStorage.setItem('catan.profile', JSON.stringify(p)); } catch { /* ignore */ } }
-  let profile = loadProfile();
+  let profiles = loadProfiles();
+  let profile = profiles.list.find(p => p.id === profiles.active) || null;
+  try { if (profile && !localStorage.getItem('catan.profiles')) saveProfiles(); } catch { /* ignore */ } // guarda la migración
+  function saveProfiles() {
+    profiles.active = profile ? profile.id : null;
+    try {
+      localStorage.setItem('catan.profiles', JSON.stringify(profiles));
+      if (profile) localStorage.setItem('catan.profile', JSON.stringify(profile)); // compatibilidad
+      else localStorage.removeItem('catan.profile');
+    } catch { /* ignore */ }
+  }
+  function saveProfile(p) {
+    const i = profiles.list.findIndex(x => x.id === p.id);
+    if (i >= 0) profiles.list[i] = p; else profiles.list.push(p);
+    profile = p;
+    saveProfiles();
+  }
 
   function recordGame(won) {
     if (!profile) return;
@@ -58,7 +88,7 @@
   function profileChip() {
     if (!profile) return '';
     const st = profile.stats || { played: 0, won: 0 };
-    return `<button class="profile-chip" data-go="profile"><span class="pc-avatar" style="--pc:${C.colorHex(profile.color)}">${esc(profile.avatar)}</span>
+    return `<button class="profile-chip" data-go="profiles" title="Cambiar de perfil"><span class="pc-avatar" style="--pc:${C.colorHex(profile.color)}">${esc(profile.avatar)}</span>
       <span><b>${esc(profile.name)}</b><small>${st.won} victorias · ${st.played} partidas</small></span></button>`;
   }
 
@@ -70,7 +100,8 @@
 
   function go(where) {
     if (where === 'menu') showMenu();
-    else if (where === 'profile') showProfile();
+    else if (where === 'profile') showProfile(false, profile);
+    else if (where === 'profiles') showProfiles();
     else if (where === 'solo') showSolo();
     else if (where === 'lan') showLan();
     else if (where === 'rules') showRules();
@@ -80,32 +111,86 @@
   // ---------- menú principal ----------
   function showMenu() {
     setBackground(true);
-    if (!profile) return showProfile(true);
+    if (!profile) return profiles.list.length ? showProfiles() : showProfile(true);
     screen(`<div class="menu-top">${profileChip()}</div>
       <div class="title-block"><div class="title-hexes">${['wood', 'brick', 'sheep', 'wheat', 'ore'].map(k => `<span class="th th-${k}">${icon(k, 34)}</span>`).join('')}</div>
         <h1 class="game-title">CATAN</h1><div class="game-sub">Colonos · Edición virtual</div></div>
       <nav class="main-menu">
         <button class="menu-btn" data-go="solo"><span class="mb-ic">🤖</span><span><b>Jugar contra la máquina</b><small>Partida individual con rivales automáticos</small></span></button>
         <button class="menu-btn" data-go="lan"><span class="mb-ic">🖧</span><span><b>Partida en red (LAN)</b><small>Juega con otras computadoras de tu red</small></span></button>
-        <button class="menu-btn" data-go="profile"><span class="mb-ic">👤</span><span><b>Perfil</b><small>Nombre, ficha y color</small></span></button>
+        <button class="menu-btn" data-go="profiles"><span class="mb-ic">👤</span><span><b>Perfiles</b><small>Elegir, crear o editar (hasta ${MAX_PROFILES})</small></span></button>
         <button class="menu-btn" data-go="rules"><span class="mb-ic">📜</span><span><b>Reglas del juego</b><small>Básico, 5-6, Navegantes, Ciudades, Piratas…</small></span></button>
         ${root.desktop ? '<button class="menu-btn small" data-go="quit"><span><b>Salir</b></span></button>' : ''}
-      </nav><div class="version">v0.1 · Catan es una marca de Catan GmbH. Proyecto personal sin fines comerciales.</div>`, 'menu');
+      </nav><div class="version"><span id="app-ver"></span>Catan es una marca de Catan GmbH. Proyecto personal sin fines comerciales.</div>`, 'menu');
+    if (root.desktop && root.desktop.version) root.desktop.version().then(v => { const e = document.getElementById('app-ver'); if (e) e.textContent = 'v' + v + ' · '; }).catch(() => {});
   }
 
   // ---------- perfil ----------
-  function showProfile(first) {
+  // Lista de perfiles: elegir con cuál jugar, crear, editar o borrar
+  function showProfiles() {
     setBackground(true);
-    const p = Object.assign({ name: '', avatar: AVATARS[0], color: 'red', stats: { played: 0, won: 0 } }, profile || {});
+    const L = profiles.list;
+    const card = p => {
+      const st = p.stats || { played: 0, won: 0 };
+      const on = profile && p.id === profile.id;
+      return `<div class="pf-card ${on ? 'on' : ''}" data-pick="${p.id}">
+        <span class="pc-avatar big" style="--pc:${C.colorHex(p.color)}">${esc(p.avatar)}</span>
+        <b class="pf-name">${esc(p.name)}</b><small>${st.won} victorias · ${st.played} partidas</small>
+        ${on ? '<span class="pf-tag">Jugando</span>' : '<span class="pf-tag ghost">Elegir</span>'}
+        <div class="pf-tools"><button class="btn ghost small" data-edit="${p.id}" title="Editar">✏️ Editar</button>
+          <button class="btn ghost small" data-del="${p.id}" title="Borrar">🗑️</button></div></div>`;
+    };
+    const el = screen(`<div class="panel mid">
+      <div class="panel-head"><button class="btn ghost" data-go="menu">← Volver</button><h2>Perfiles</h2><span class="muted small">${L.length} de ${MAX_PROFILES}</span></div>
+      <p class="muted">Elige con qué perfil juegas. Cada perfil guarda su nombre, ficha, color y estadísticas.</p>
+      <div class="pf-grid">${L.map(card).join('')}
+        ${L.length < MAX_PROFILES ? '<button class="pf-card pf-new" data-new><span class="pf-plus">＋</span><b>Nuevo perfil</b></button>' : ''}</div>
+      ${L.length >= MAX_PROFILES ? `<p class="muted small">Ya tienes ${MAX_PROFILES} perfiles, el máximo. Borra uno para crear otro.</p>` : ''}</div>`);
+    el.addEventListener('click', e => {
+      const ed = e.target.closest('[data-edit]'), del = e.target.closest('[data-del]'), pick = e.target.closest('[data-pick]');
+      if (e.target.closest('[data-new]')) { C.Sound.play('click'); showProfile(false, null); return; }
+      if (ed) { C.Sound.play('click'); showProfile(false, L.find(p => p.id === ed.dataset.edit)); return; }
+      if (del) {
+        const p = L.find(x => x.id === del.dataset.del);
+        globalModal(`<h2>¿Borrar el perfil «${esc(p.name)}»?</h2><p>Se perderán sus estadísticas. No se puede deshacer.</p>
+          <div class="go-btns"><button class="btn" data-no>Cancelar</button><button class="btn danger" data-yes>Borrar</button></div>`, {
+          mount: (m, close) => {
+            m.querySelector('[data-no]').onclick = close;
+            m.querySelector('[data-yes]').onclick = () => {
+              close();
+              profiles.list = L.filter(x => x.id !== p.id);
+              if (profile && profile.id === p.id) profile = profiles.list[0] || null;
+              saveProfiles();
+              if (profiles.list.length) showProfiles(); else showProfile(true);
+            };
+          }
+        });
+        return;
+      }
+      if (pick) {
+        profile = L.find(p => p.id === pick.dataset.pick);
+        saveProfiles();
+        C.Sound.play('build');
+        showMenu();
+      }
+    });
+  }
+
+  // Crear (src = null) o editar un perfil
+  function showProfile(first, src) {
+    setBackground(true);
+    const isNew = !src;
+    const used = new Set(profiles.list.filter(x => !src || x.id !== src.id).map(x => x.avatar));
+    const p = Object.assign({ id: newId(), name: '', avatar: AVATARS.find(a => !used.has(a)) || AVATARS[0], color: 'red', stats: { played: 0, won: 0 } }, src ? JSON.parse(JSON.stringify(src)) : {});
     const el = screen(`<div class="panel narrow">
-      <h2>${first ? '¡Bienvenido a Catan!' : 'Tu perfil'}</h2>
+      <h2>${first ? '¡Bienvenido a Catan!' : isNew ? 'Nuevo perfil' : 'Editar perfil'}</h2>
       ${first ? '<p>Crea tu perfil para empezar a jugar.</p>' : ''}
       <label class="field"><span>Nombre</span><input id="pf-name" maxlength="20" value="${esc(p.name)}" placeholder="Tu nombre"></label>
       <div class="field"><span>Ficha</span><div class="avatar-grid">${AVATARS.map(a => `<button class="av ${a === p.avatar ? 'on' : ''}" data-av="${a}">${a}</button>`).join('')}</div></div>
       <div class="field"><span>Color preferido</span><div class="color-row">${C.COLORS.map(c => `<button class="col ${c.id === p.color ? 'on' : ''}" data-col="${c.id}" style="--c:${c.hex}" title="${c.name}"></button>`).join('')}</div></div>
       ${!first ? `<div class="stats-row"><div><b>${p.stats.played}</b><small>Partidas</small></div><div><b>${p.stats.won}</b><small>Victorias</small></div>
         <div><b>${p.stats.played ? Math.round(100 * p.stats.won / p.stats.played) : 0}%</b><small>Éxito</small></div></div>` : ''}
-      <div class="panel-foot">${!first ? '<button class="btn" data-go="menu">Volver</button>' : ''}<button class="btn primary" id="pf-save">Guardar</button></div></div>`);
+      <div class="panel-foot">${!first ? '<button class="btn" data-go="profiles">Volver</button>' : ''}<button class="btn primary" id="pf-save">${isNew && !first ? 'Crear perfil' : 'Guardar'}</button></div></div>`);
     el.addEventListener('click', e => {
       const av = e.target.closest('[data-av]'), col = e.target.closest('[data-col]');
       if (av) { p.avatar = av.dataset.av; el.querySelectorAll('.av').forEach(b => b.classList.toggle('on', b === av)); }
@@ -114,11 +199,18 @@
     el.querySelector('#pf-save').addEventListener('click', () => {
       const name = el.querySelector('#pf-name').value.trim();
       if (!name) { el.querySelector('#pf-name').focus(); el.querySelector('#pf-name').classList.add('bad'); return; }
+      if (profiles.list.some(x => x.id !== p.id && x.name.toLowerCase() === name.toLowerCase())) {
+        alertBox('Nombre repetido', 'Ya existe un perfil con ese nombre.');
+        return;
+      }
+      if (isNew && profiles.list.length >= MAX_PROFILES) { alertBox('Máximo de perfiles', `Solo se pueden tener ${MAX_PROFILES} perfiles.`); return; }
       p.name = name;
-      profile = p;
+      // al crear uno nuevo se juega con él; al editar otro perfil, el activo no cambia
+      const keepActive = !isNew && profile && profile.id !== p.id ? profile : null;
       saveProfile(p);
+      if (keepActive) { profile = keepActive; saveProfiles(); }
       C.Sound.play('build');
-      showMenu();
+      if (first) showMenu(); else showProfiles();
     });
     el.querySelector('#pf-name').focus();
   }

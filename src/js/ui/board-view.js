@@ -22,26 +22,30 @@
 
   const SPOTS = [[-0.5, -0.48], [0.02, -0.66], [0.52, -0.44], [-0.66, 0.06], [0.66, 0.08], [-0.38, 0.56], [0.36, 0.6]];
 
+  // retraso aleatorio para que las animaciones de producción no vayan todas a la vez
+  let animSeed = 1;
+  const anim = () => { animSeed = (animSeed * 9301 + 49297) % 233280; return (animSeed / 233280 * 0.35).toFixed(2); };
+
   function tree(x, y, k) {
-    return `<g transform="translate(${x},${y}) scale(${k})"><rect x="-1.2" y="3" width="2.4" height="4" fill="#5b3a1e"/>
-      <polygon points="0,-9 6,0 -6,0" fill="#1e5520"/><polygon points="0,-5 7.5,4 -7.5,4" fill="#2a6d2a"/></g>`;
+    return `<g transform="translate(${x},${y}) scale(${k})"><g class="a-tree" style="animation-delay:${anim()}s"><rect x="-1.2" y="3" width="2.4" height="4" fill="#5b3a1e"/>
+      <polygon points="0,-9 6,0 -6,0" fill="#1e5520"/><polygon points="0,-5 7.5,4 -7.5,4" fill="#2a6d2a"/></g></g>`;
   }
   function sheep(x, y, k) {
-    return `<g transform="translate(${x},${y}) scale(${k})"><g fill="#fbfbf6"><circle cx="-2.5" cy="0" r="3"/><circle cx="1" cy="-1.5" r="3"/><circle cx="3" cy="1" r="2.8"/><circle cx="-0.5" cy="2" r="3"/></g>
-      <ellipse cx="6" cy="-0.5" rx="2" ry="1.6" fill="#2b2b2b"/><rect x="-2.5" y="4" width="1" height="2.6" fill="#2b2b2b"/><rect x="2" y="4" width="1" height="2.6" fill="#2b2b2b"/></g>`;
+    return `<g transform="translate(${x},${y}) scale(${k})"><g class="a-sheep" style="animation-delay:${anim()}s"><g fill="#fbfbf6"><circle cx="-2.5" cy="0" r="3"/><circle cx="1" cy="-1.5" r="3"/><circle cx="3" cy="1" r="2.8"/><circle cx="-0.5" cy="2" r="3"/></g>
+      <ellipse cx="6" cy="-0.5" rx="2" ry="1.6" fill="#2b2b2b"/><rect x="-2.5" y="4" width="1" height="2.6" fill="#2b2b2b"/><rect x="2" y="4" width="1" height="2.6" fill="#2b2b2b"/></g></g>`;
   }
   function mountain(x, y, k, snow) {
-    return `<g transform="translate(${x},${y}) scale(${k})"><polygon points="-10,7 0,-9 10,7" fill="#5f666f" stroke="#454b52" stroke-width=".6"/>
-      <polygon points="0,-9 4,-2.5 1.5,-3.5 -1,-1.5 -4,-2.5" fill="${snow ? '#f4f6f8' : '#8d949c'}"/><polygon points="0,-9 10,7 3,7" fill="#4c525a" opacity=".55"/></g>`;
+    return `<g transform="translate(${x},${y}) scale(${k})"><g class="a-mtn" style="animation-delay:${anim()}s"><polygon points="-10,7 0,-9 10,7" fill="#5f666f" stroke="#454b52" stroke-width=".6"/>
+      <polygon points="0,-9 4,-2.5 1.5,-3.5 -1,-1.5 -4,-2.5" fill="${snow ? '#f4f6f8' : '#8d949c'}"/><polygon points="0,-9 10,7 3,7" fill="#4c525a" opacity=".55"/></g></g>`;
   }
   function wheat(x, y, k) {
-    return `<g transform="translate(${x},${y}) scale(${k})" stroke="#9a6b12" stroke-width=".9" fill="#c7901c">
+    return `<g transform="translate(${x},${y}) scale(${k})" stroke="#9a6b12" stroke-width=".9" fill="#c7901c"><g class="a-wheat" style="animation-delay:${anim()}s">
       <path d="M0,7 L0,-6" fill="none"/><ellipse cx="-1.5" cy="-4" rx="1.2" ry="2.2"/><ellipse cx="1.5" cy="-4" rx="1.2" ry="2.2"/>
-      <ellipse cx="-1.5" cy="0" rx="1.2" ry="2.2"/><ellipse cx="1.5" cy="0" rx="1.2" ry="2.2"/></g>`;
+      <ellipse cx="-1.5" cy="0" rx="1.2" ry="2.2"/><ellipse cx="1.5" cy="0" rx="1.2" ry="2.2"/></g></g>`;
   }
   function bricks(x, y, k) {
-    return `<g transform="translate(${x},${y}) scale(${k})" stroke="#6e2a10" stroke-width=".6"><rect x="-7" y="1" width="6.5" height="3.5" fill="#b9512a"/>
-      <rect x="0.5" y="1" width="6.5" height="3.5" fill="#c9603a"/><rect x="-3.5" y="-3" width="6.5" height="3.5" fill="#d06a42"/></g>`;
+    return `<g transform="translate(${x},${y}) scale(${k})" stroke="#6e2a10" stroke-width=".6"><g class="a-brick" style="animation-delay:${anim()}s"><rect x="-7" y="1" width="6.5" height="3.5" fill="#b9512a"/>
+      <rect x="0.5" y="1" width="6.5" height="3.5" fill="#c9603a"/><rect x="-3.5" y="-3" width="6.5" height="3.5" fill="#d06a42"/></g></g>`;
   }
 
   function decor(h) {
@@ -85,7 +89,7 @@
         break;
       case 'gold':
         out += `<path d="M${cx - 0.9 * S},${cy - 0.2 * S} C${cx - 0.3 * S},${cy - 0.6 * S} ${cx + 0.2 * S},${cy + 0.5 * S} ${cx + 0.9 * S},${cy + 0.1 * S}" stroke="#4aa3e0" stroke-width="7" fill="none" opacity=".85"/>`;
-        spots.forEach(([x, y]) => { out += `<circle cx="${x}" cy="${y}" r="${2.5 + r() * 2}" fill="#fff3a8" stroke="#b9860f" stroke-width=".8"/>`; });
+        spots.forEach(([x, y]) => { out += `<circle class="a-gold" style="animation-delay:${anim()}s" cx="${x}" cy="${y}" r="${2.5 + r() * 2}" fill="#fff3a8" stroke="#b9860f" stroke-width=".8"/>`; });
         break;
       case 'fish':
         [[-0.45, -0.3], [0.4, -0.35], [-0.1, 0.45]].forEach(([dx, dy], i) => {
@@ -562,9 +566,10 @@
       land.forEach(h => { out += `<polygon points="${hexPoints(h, 1.08)}" fill="#e8d9a6" stroke="#e8d9a6" stroke-width="4"/>`; });
       // casillas con grosor (las de abajo tapan el costado de las de arriba)
       land.forEach(h => {
-        out += `<g class="hex">${prismSides(h, 0.95, 6, BASE[h.terrain] ? BASE[h.terrain][1] : '#888')}
+        out += `<g class="hex t-${h.terrain}" data-hex="${h.id}">${prismSides(h, 0.95, 6, BASE[h.terrain] ? BASE[h.terrain][1] : '#888')}
           <polygon points="${hexPoints(h, 0.95)}" fill="url(#${this.uid}-${h.terrain})" stroke="rgba(255,248,225,.75)" stroke-width="1.5"/>${decor(h)}
-          <polygon points="${hexPoints(h, 0.95)}" fill="url(#${this.uid}-bevel)" pointer-events="none"/></g>`;
+          <polygon points="${hexPoints(h, 0.95)}" fill="url(#${this.uid}-bevel)" pointer-events="none"/>
+          <polygon class="prod-glow" points="${hexPoints(h, 0.95)}" pointer-events="none"/></g>`;
       });
       // zona inexplorada (Piratas y Exploradores)
       b.hexes.filter(h => h.terrain === 'hidden').forEach(h => {
@@ -658,6 +663,19 @@
       });
       this.gHl.innerHTML = out;
       this.upright(this.gHl.querySelectorAll('[data-kind=vertex], circle.pulse'));
+    }
+
+    // Animación de producción: las casillas indicadas cobran vida unos segundos
+    animateProduce(ids) {
+      ids.forEach(id => {
+        const g = this.gStatic.querySelector(`.hex[data-hex="${id}"]`);
+        if (!g) return;
+        g.classList.remove('producing');
+        void g.getBBox(); // reinicia la animación si ya estaba en marcha
+        g.classList.add('producing');
+        clearTimeout(g._prodT);
+        g._prodT = setTimeout(() => g.classList.remove('producing'), 2600);
+      });
     }
 
     // Vista inclinada: el tablero se comprime en vertical dentro del SVG (sigue siendo vectorial y nítido)

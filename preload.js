@@ -12,5 +12,6 @@ contextBridge.exposeInMainWorld('desktop', {
   },
   stopDiscovery: () => { ipcRenderer.removeAllListeners('lan:games'); return ipcRenderer.invoke('lan:discover-stop'); },
   toggleFullscreen: () => ipcRenderer.invoke('app:fullscreen'),
-  quit: () => ipcRenderer.invoke('app:quit')
+  quit: () => ipcRenderer.invoke('app:quit'),
+  version: () => ipcRenderer.invoke('app:version')
 });

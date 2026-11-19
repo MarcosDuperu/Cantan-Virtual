@@ -152,6 +152,8 @@
       for (const ev of v.events) {
         if (ev.seq <= this.lastEvent) continue;
         this.lastEvent = ev.seq;
+        if (ev.type === 'roll') this.lastRoll = (ev.dice || []).reduce((a, d) => a + (+d || 0), 0);
+        if (ev.type === 'produce') this.animateProduction(ev, v);
         if (this.isCK() && this.ckEvent(ev, v)) continue;
         if (this.isPE() && this.peEvent(ev, v)) continue;
         if (this.isTB() && this.tbEvent(ev, v)) continue;
@@ -180,6 +182,20 @@
           if (ev.p2 === this.me) { C.Sound.play('turn'); this.toast('¡Juegas como jugador 2 de la pareja!', 'big'); }
         } else if (ev.type === 'win') C.Sound.play('win');
       }
+    }
+
+    // Casillas que acaban de darme recursos: animación propia de cada terreno
+    animateProduction(ev, v) {
+      const g = (ev.got && ev.got[this.me]) || {};
+      const roll = this.lastRoll;
+      if (!roll || !v.board) return;
+      const ids = v.board.hexes.filter(h => {
+        if ((h.number !== roll && h.number2 !== roll) || h.id === v.robber || h.conquered || h.hidden) return false;
+        const res = C.TERRAIN_RES[h.terrain];
+        if (!(h.terrain === 'gold' || (res && g[res]))) return false;
+        return (h.vertices || []).some(x => { const b = v.buildings[x]; return b && b.owner === this.me && !b.conquered; });
+      }).map(h => h.id);
+      if (ids.length) this.board.animateProduce(ids);
     }
 
     // ---------- render ----------

@@ -51,6 +51,7 @@ ipcMain.handle('lan:discover-start', e => {
 });
 ipcMain.handle('lan:discover-stop', () => { if (listener) { listener.stop(); listener = null; } return true; });
 ipcMain.handle('app:quit', () => app.quit());
+ipcMain.handle('app:version', () => app.getVersion());
 ipcMain.handle('app:fullscreen', () => { if (win) win.setFullScreen(!win.isFullScreen()); return win && win.isFullScreen(); });
 
 // En Linux la aceleración por GPU provoca fallos de repintado en algunos equipos

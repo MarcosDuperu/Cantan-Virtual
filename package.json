@@ -1,7 +1,7 @@
 {
   "name": "catan-virtual",
   "productName": "Catan Virtual",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Colonos de Catan virtual: solo contra la máquina o en red LAN",
   "main": "main.js",
   "author": {
